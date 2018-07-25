@@ -1,5 +1,11 @@
+__precompile__()
 module RLEnvDiscrete
+using Parameters, Reexport
+@reexport using ReinforcementLearning
+import ReinforcementLearning: interact!, getstate, reset!
 
-# package code goes here
+include("cliffwalking.jl")
+include("maze.jl")
+include("pomdps.jl")
 
 end # module
