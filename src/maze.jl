@@ -1,5 +1,3 @@
-# Maze
-module Maze
 function getemptymaze(dimx, dimy)
     maze = ones(Int64, dimx, dimy)
     maze[1,:] .= maze[end,:] .= 0
@@ -66,24 +64,22 @@ function addrandomwall!(maze)
     return 1
 end
 
-function mazetomdp(maze, ngoalstates = 1, goalrewards = 0, stochastic = false,
-                   neighbourstateweight = .05)
-    stochastic && goalrewards != 0 && 
-    error("Non-zero goalrewards are not implemented for stochastic mazes.")
+function mazetomdp(maze, ngoalstates = 1, goalrewards = 1, 
+                   stepcost = 0, stochastic = false, neighbourstateweight = .05)
     na = 4
     nzpos = find(maze)
     mapping = cumsum(maze[:])
     ns = length(nzpos)
     T = Array{SparseVector}(na, ns)
     goals = sort(sample(1:ns, ngoalstates, replace = false))
-    R = -ones(na, ns)
+    R = -ones(na, ns) * stepcost
     isterminal = zeros(Int64, ns); isterminal[goals] = 1
     isinitial = collect(1:ns); deleteat!(isinitial, goals)
     for s in 1:ns
         for (aind, a) in enumerate(([0, 1], [1, 0], [0, -1], [-1, 0]))
             pos = indto2d(maze, nzpos[s])
             nextpos = maze[(pos + a)...] == 0 ? pos : pos + a
-            if stochastic
+            if stochastic && !(mapping[posto1d(maze, nextpos)] in goals)
                 positions = []
                 push!(positions, nextpos)
                 weights = [1.]
@@ -100,7 +96,7 @@ function mazetomdp(maze, ngoalstates = 1, goalrewards = 0, stochastic = false,
                 nexts = mapping[posto1d(maze, nextpos)]
                 T[aind, s] = getprobvecdeterministic(ns, nexts, nexts)
                 if nexts in goals
-                    R[a, s] = goalrewards <: Number ? goalrewards : 
+                    R[aind, s] = typeof(goalrewards) <: Number ? goalrewards : 
                                 goalrewards[findfirst(x -> x == nexts, goals)]
                 end
             end
@@ -123,68 +119,101 @@ function breaksomewalls(m; f = 1/50,
         end
     end
 end
-    
-function MazeMDP(; nx = 40, ny = 40, returnall = false, 
+
+"""
+    struct DiscreteMaze
+        mdp::MDP
+        maze::Array{Int64, 2}
+        goals::Array{Int64, 1}
+        nzpos::Array{Int64, 1}
+"""
+struct DiscreteMaze
+    mdp::MDP
+    maze::Array{Int64, 2}
+    goals::Array{Int64, 1}
+    nzpos::Array{Int64, 1}
+end
+"""
+    DiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 10), ngoals = 1,
+                   goalrewards = 1, stepcost = 0, stochastic = false, 
+                   neighbourstateweight = .05)
+
+Returns a `DiscreteMaze` of width `nx` and height `ny` with `nwalls` walls and
+`ngoals` goal locations with reward `goalreward` (a list of different rewards
+for the different goal states or constant reward for all goals), cost of moving 
+`stepcost` (reward = -`stepcost`); if `stochastic = true` the actions lead with
+a certain probability to a neighbouring state, where `neighbourstateweight`
+controls this probability.
+"""
+function DiscreteMaze(; nx = 40, ny = 40, 
                    nwalls = div(nx*ny, 10), 
-                   offset = 0., stochastic = false, ngoals = 1,
-                   neighbourstateweight = .05, goalrewards = 0)
+                   stepcost = 0., stochastic = false, ngoals = 1,
+                   neighbourstateweight = .05, goalrewards = 1)
     m = getemptymaze(nx, ny)
     [addrandomwall!(m) for _ in 1:nwalls]
     breaksomewalls(m)
-    mdp, goals, mapping = mazetomdp(m, ngoals, goalrewards,
-                                    stochastic, neighbourstateweight)
-    mdp.reward .+= offset
-    if returnall
-        m, mdp, goals, mapping
+    mdp, goals, nzpos = mazetomdp(m, ngoals, goalrewards, stepcost,
+                                  stochastic, neighbourstateweight)
+    mdp.reward .-= stepcost
+    DiscreteMaze(mdp, m, goals, nzpos)
+end
+export DiscreteMaze
+
+interact!(a, env::DiscreteMaze) = interact!(a, env.mdp)
+reset!(env::DiscreteMaze) = reset!(env.mdp)
+getstate(env::DiscreteMaze) = getstate(env.mdp)
+
+"""
+    mutable struct VisualizeMaze 
+        plot
+        wait::Float64
+"""
+mutable struct VisualizeMaze 
+    plot
+    wait::Float64
+end
+"""
+    VisualizeMaze(; wait = .001)
+
+A callback to be used in an `RLSetup` to visualize a maze during running or 
+learning.
+"""
+VisualizeMaze(; wait = .001) = VisualizeMaze(Void, wait)
+export VisualizeMaze
+function callback!(c::VisualizeMaze, rlsetup, s, a, r, done)
+    if c.plot == Void
+        c.plot = plotmaze(rlsetup.environment, s)
+        PlotlyJS.display(c.plot)
     else
-        mdp
+        updatemazeplot!(c.plot, rlsetup.environment, s)
+        sleep(c.wait)
     end
 end
-export MazeMDP
-end
-export Maze
 
-# # this function requires
-# # using PyPlot, PyCall
-# # @pyimport matplotlib.colors as matcolors
-# function plotmazemdp(maze, goal, state, mapping; 
-#                      showvalues = false,
-#                      values = zeros(length(mapping)))
-#     maze[mapping[goal]] = 3
-#     maze[mapping[state]] = 2
-#     figure(figsize = (4, 4))
-#     cmap = matcolors.ListedColormap(["gray", "white", "blue", "red"], "A")
-#     if showvalues
-#         m = zeros(size(maze)...)
-#         m[mapping] .= values
-#         imshow(m, cmap = "Spectral_r")
-#     end
-#     imshow(maze, interpolation = "none", cmap = cmap, alpha = (1 - .5showvalues))
-#     plt[:tick_params](top="off", bottom="off",
-#                       labelbottom="off", labeltop="off",
-#                       labelleft="off", left="off")
-#     maze[mapping[goal]] = 1
-#     maze[mapping[state]] = 1
-# end
-# 
-# # this function requires
-# # using PlotlyJS
-# function plotmazemdp(maze, goals, state, mapping)
-#     m = deepcopy(maze)
-#     m[mapping[goals]] = 3
-#     m[mapping[state]] = 2
-#     data = heatmap(z = m, colorscale = [[0, "gray"], [1/3, "white"], 
-#                                         [2/3, "blue"], [1., "red"]], 
-#                   showscale = false)
-#     w, h = size(m)
-#     layout = Layout(autosize = false, width = 600, height = 600 * h/w)
-#     plot(data, layout)
-# end
-# function updatemazeplot(p, state, mapping)
-#     oldstate = findfirst(x -> x == 2, p.plot.data[1][:z])
-#     p.plot.data[1][:z][oldstate] = 1
-#     p.plot.data[1][:z][mapping[state]] = 2
-#     p
-# end
-# 
-# 
+"""
+    plotmaze(discretemaze, state)
+"""
+function plotmaze(env, state)
+    goals = env.goals
+    nzpos = env.nzpos
+    m = deepcopy(env.maze)
+    m[nzpos[goals]] = 3
+    m[nzpos[state]] = 2
+    data = PlotlyJS.heatmap(z = m, colorscale = [[0, "gray"], [1/3, "white"], 
+                                                 [2/3, "blue"], [1., "red"]], 
+                            showscale = false)
+    w, h = size(m)
+    layout = PlotlyJS.Layout(autosize = false, width = 600, height = 600 * h/w)
+    PlotlyJS.plot(data, layout)
+end
+"""
+    updatemazeplot!(plot, discretemaze, state)
+"""
+function updatemazeplot!(p, env, state)
+    nzpos = env.nzpos
+    oldstate = findfirst(x -> x == 2, p.plot.data[1][:z])
+    p.plot.data[1][:z][oldstate] = 1
+    p.plot.data[1][:z][nzpos[state]] = 2
+    PlotlyJS.display(p)
+end
+export plotmaze, updatemazeplot!
