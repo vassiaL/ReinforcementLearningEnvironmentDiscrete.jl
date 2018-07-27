@@ -6,4 +6,22 @@ else
 end
 
 # write your own tests here
-@test 1 == 2
+import RLEnvDiscrete: reset!, interact!, getstate
+env = DiscreteMaze()
+reset!(env)
+@test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
+@test typeof(getstate(env)) == Tuple{Int64, Bool}
+
+using POMDPModels
+env = POMDPEnvironment(TigerPOMDP())
+reset!(env)
+@test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
+@test typeof(getstate(env)) == Tuple{Int64, Bool}
+env = MDPEnvironment(GridWorld())
+reset!(env)
+@test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
+@test typeof(getstate(env)) == Tuple{Int64, Bool}
+
+env = CliffWalkingMDP()
+reset!(env)
+@test env.mdp.state == 1
