@@ -2,36 +2,48 @@ using POMDPModels
 
 const rng = MersenneTwister(0)
 
-type POMDPEnvironment
-    model::POMDPModels.DiscretePOMDP
-    state::Int64
+type POMDPEnvironment{T,Ts,Ta}
+    model::T
+    state::Ts
+    actions::Ta
 end
-type MDPEnvironment
-    model::POMDPModels.DiscreteMDP
-    state::Int64
+POMDPEnvironment(model) = POMDPEnvironment(model, 
+                                           initial_state(model, rng),
+                                           actions(model))
+export POMDPEnvironment
+type MDPEnvironment{T,Ts,Ta}
+    model::T
+    state::Ts
+    actions::Ta
 end
+MDPEnvironment(model) = MDPEnvironment(model,
+                                       initial_state(model, rng),
+                                       actions(model))
+export MDPEnvironment
+
+observation_index(env, o) = Int64(o) + 1
 
 function interact!(action, env::POMDPEnvironment) 
-    s, o, r = generate_sor(env.model, env.state, action, rng)
+    s, o, r = generate_sor(env.model, env.state, env.actions[action], rng)
     env.state = s
-    o, r, isterminal(env.model, s)
+    observation_index(env.model, o), r, isterminal(env.model, s)
 end
 function reset!(env::Union{POMDPEnvironment, MDPEnvironment})
     env.state = initial_state(env.model, rng)
     nothing
 end
 function getstate(env::POMDPEnvironment)
-    generate_o(env.model, env.state, rng),
+    observation_index(env.model, generate_o(env.model, env.state, rng)),
     isterminal(env.model, env.state)
 end
 
 function interact!(action, env::MDPEnvironment)
-    s = rand(rng, transition(env.model, env.state, action))
-    r = env.model.R[env.state, action]
+    s = rand(rng, transition(env.model, env.state, env.actions[action]))
+    r = reward(env.model, env.state, env.actions[action])
     env.state = s
-    s, r, isterminal(env.model, s)
+    state_index(env.model, s), r, isterminal(env.model, s)
 end
 function getstate(env::MDPEnvironment)
-    env.state, isterminal(env.model, env.state)
+    state_index(env.model, env.state), isterminal(env.model, env.state)
 end
 
