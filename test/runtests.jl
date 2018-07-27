@@ -24,4 +24,4 @@ reset!(env)
 
 env = CliffWalkingMDP()
 reset!(env)
-@test env.mdp.state == 1
+@test env.state == 1
