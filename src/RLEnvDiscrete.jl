@@ -2,7 +2,7 @@ __precompile__()
 module RLEnvDiscrete
 using Parameters, Reexport
 import StatsBase: sample
-import PlotlyJS
+import GR: imshow
 @reexport using ReinforcementLearning
 import ReinforcementLearning: interact!, getstate, reset!,
 getprobvecdeterministic, callback!

@@ -169,25 +169,19 @@ getstate(env::DiscreteMaze) = getstate(env.mdp)
         wait::Float64
 """
 mutable struct VisualizeMaze 
-    plot
     wait::Float64
 end
 """
-    VisualizeMaze(; wait = .001)
+    VisualizeMaze(; wait = .15)
 
 A callback to be used in an `RLSetup` to visualize a maze during running or 
 learning.
 """
-VisualizeMaze(; wait = .001) = VisualizeMaze(Void, wait)
+VisualizeMaze(; wait = .15) = VisualizeMaze(wait)
 export VisualizeMaze
 function callback!(c::VisualizeMaze, rlsetup, s, a, r, done)
-    if c.plot == Void
-        c.plot = plotmaze(rlsetup.environment, s)
-        PlotlyJS.display(c.plot)
-    else
-        updatemazeplot!(c.plot, rlsetup.environment, s)
-        sleep(c.wait)
-    end
+    plotmaze(rlsetup.environment, s)
+    sleep(c.wait)
 end
 
 """
@@ -199,21 +193,6 @@ function plotmaze(env, state)
     m = deepcopy(env.maze)
     m[nzpos[goals]] = 3
     m[nzpos[state]] = 2
-    data = PlotlyJS.heatmap(z = m, colorscale = [[0, "gray"], [1/3, "white"], 
-                                                 [2/3, "blue"], [1., "red"]], 
-                            showscale = false)
-    w, h = size(m)
-    layout = PlotlyJS.Layout(autosize = false, width = 600, height = 600 * h/w)
-    PlotlyJS.plot(data, layout)
+    imshow(m, colormap = 21, size = (400, 400))
 end
-"""
-    updatemazeplot!(plot, discretemaze, state)
-"""
-function updatemazeplot!(p, env, state)
-    nzpos = env.nzpos
-    oldstate = findfirst(x -> x == 2, p.plot.data[1][:z])
-    p.plot.data[1][:z][oldstate] = 1
-    p.plot.data[1][:z][nzpos[state]] = 2
-    PlotlyJS.display(p)
-end
-export plotmaze, updatemazeplot!
+export plotmaze
