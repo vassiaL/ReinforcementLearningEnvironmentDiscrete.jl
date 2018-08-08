@@ -1,6 +1,6 @@
 # RLEnvDiscrete
 
-[![Build Status](https://travis-ci.org/JuliaReinforcementLearning/RLEnvDiscrete.jl.svg?branch=master)](https://travis-ci.org/JuliaReinforcementLearning/RLEnvDiscrete.jl)
+[![Build Status](https://travis-ci.com/JuliaReinforcementLearning/RLEnvDiscrete.jl.svg?branch=master)](https://travis-ci.com/JuliaReinforcementLearning/RLEnvDiscrete.jl)
 
 [![Coverage Status](https://coveralls.io/repos/JuliaReinforcementLearning/RLEnvDiscrete.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/JuliaReinforcementLearning/RLEnvDiscrete.jl?branch=master)
 
