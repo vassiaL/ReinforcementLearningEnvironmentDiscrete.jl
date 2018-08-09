@@ -5,7 +5,7 @@ import StatsBase: sample
 import GR: imshow
 @reexport using ReinforcementLearning
 import ReinforcementLearning: interact!, getstate, reset!,
-getprobvecdeterministic, callback!
+getprobvecdeterministic, callback!, plotenv
 
 include("cliffwalking.jl")
 include("maze.jl")

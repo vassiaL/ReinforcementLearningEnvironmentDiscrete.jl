@@ -163,36 +163,12 @@ interact!(a, env::DiscreteMaze) = interact!(a, env.mdp)
 reset!(env::DiscreteMaze) = reset!(env.mdp)
 getstate(env::DiscreteMaze) = getstate(env.mdp)
 
-"""
-    mutable struct VisualizeMaze 
-        plot
-        wait::Float64
-"""
-mutable struct VisualizeMaze 
-    wait::Float64
-end
-"""
-    VisualizeMaze(; wait = .15)
 
-A callback to be used in an `RLSetup` to visualize a maze during running or 
-learning.
-"""
-VisualizeMaze(; wait = .15) = VisualizeMaze(wait)
-export VisualizeMaze
-function callback!(c::VisualizeMaze, rlsetup, s, a, r, done)
-    plotmaze(rlsetup.environment, s)
-    sleep(c.wait)
-end
-
-"""
-    plotmaze(discretemaze, state)
-"""
-function plotmaze(env, state)
+function plotenv(env::DiscreteMaze, s, a, r, d)
     goals = env.goals
     nzpos = env.nzpos
     m = deepcopy(env.maze)
     m[nzpos[goals]] = 3
-    m[nzpos[state]] = 2
+    m[nzpos[s]] = 2
     imshow(m, colormap = 21, size = (400, 400))
 end
-export plotmaze
