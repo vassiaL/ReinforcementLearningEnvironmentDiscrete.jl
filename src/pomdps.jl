@@ -2,7 +2,7 @@ using POMDPModels
 
 const rng = MersenneTwister(0)
 
-type POMDPEnvironment{T,Ts,Ta}
+mutable struct POMDPEnvironment{T,Ts,Ta}
     model::T
     state::Ts
     actions::Ta
@@ -11,7 +11,7 @@ POMDPEnvironment(model) = POMDPEnvironment(model,
                                            initial_state(model, rng),
                                            actions(model))
 export POMDPEnvironment
-type MDPEnvironment{T,Ts,Ta}
+mutable struct MDPEnvironment{T,Ts,Ta}
     model::T
     state::Ts
     actions::Ta
