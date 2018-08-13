@@ -36,7 +36,7 @@ function CliffWalking(; offset = 0.,
     mdp.reward[3, 45] = goalreward
     mdp.reward .+= offset
     m = ones(Int64, 4, 12)
-    m[5:4:41] = 0
+    m[5:4:41] .= 0
     DiscreteMaze(mdp, m, [45], collect(1:48))
 end
 

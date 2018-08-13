@@ -12,16 +12,16 @@ reset!(env)
 @test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
 @test typeof(getstate(env)) == Tuple{Int64, Bool}
 
-using POMDPModels
-env = POMDPEnvironment(TigerPOMDP())
-reset!(env)
-@test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
-@test typeof(getstate(env)) == Tuple{Int64, Bool}
-env = MDPEnvironment(GridWorld())
-reset!(env)
-@test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
-@test typeof(getstate(env)) == Tuple{Int64, Bool}
+# using POMDPModels
+# env = POMDPEnvironment(TigerPOMDP())
+# reset!(env)
+# @test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
+# @test typeof(getstate(env)) == Tuple{Int64, Bool}
+# env = MDPEnvironment(GridWorld())
+# reset!(env)
+# @test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
+# @test typeof(getstate(env)) == Tuple{Int64, Bool}
 
-env = CliffWalkingMDP()
+env = CliffWalking()
 reset!(env)
-@test env.state == 1
+@test env.mdp.state == 1

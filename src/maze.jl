@@ -34,7 +34,7 @@ function checkpos(maze, pos)
 end
 
 function addrandomwall!(maze)
-    startpos = rand(find(maze))
+    startpos = rand(findall(x -> x != 0, maze[:]))
     startpos = indto2d(maze, startpos)
     starttouch = checkpos(maze, startpos) 
     if starttouch > 0
@@ -67,13 +67,13 @@ end
 function mazetomdp(maze, ngoalstates = 1, goalrewards = 1, 
                    stepcost = 0, stochastic = false, neighbourstateweight = .05)
     na = 4
-    nzpos = find(maze)
+    nzpos = findall(x -> x != 0, maze[:])
     mapping = cumsum(maze[:])
     ns = length(nzpos)
-    T = Array{SparseVector}(na, ns)
+    T = Array{SparseVector}(undef, na, ns)
     goals = sort(sample(1:ns, ngoalstates, replace = false))
     R = -ones(na, ns) * stepcost
-    isterminal = zeros(Int64, ns); isterminal[goals] = 1
+    isterminal = zeros(Int64, ns); isterminal[goals] .= 1
     isinitial = collect(1:ns); deleteat!(isinitial, goals)
     for s in 1:ns
         for (aind, a) in enumerate(([0, 1], [1, 0], [0, -1], [-1, 0]))
@@ -106,9 +106,9 @@ function mazetomdp(maze, ngoalstates = 1, goalrewards = 1,
 end
 
 function breaksomewalls(m; f = 1/50, 
-                        n = div(length(find(1 - m[2:end-1, 2:end-1])), 1/f))
+                        n = div(length(findall(x -> x == 0, m[2:end-1, 2:end-1][:])), 1/f))
     nx, ny = size(m)
-    zeros = find(1 - m)
+    zeros = findall(x -> x == 0, m[:])
     i = 1
     while i < n
         candidate = rand(zeros)
@@ -168,7 +168,7 @@ function plotenv(env::DiscreteMaze, s, a, r, d)
     goals = env.goals
     nzpos = env.nzpos
     m = deepcopy(env.maze)
-    m[nzpos[goals]] = 3
+    m[nzpos[goals]] .= 3
     m[nzpos[s]] = 2
     imshow(m, colormap = 21, size = (400, 400))
 end
