@@ -1,4 +1,4 @@
-using RLEnvDiscrete
+using ReinforcementLearningEnvironmentDiscrete
 @static if VERSION < v"0.7.0-DEV.2005"
     using Base.Test
 else
@@ -6,7 +6,7 @@ else
 end
 
 # write your own tests here
-import RLEnvDiscrete: reset!, interact!, getstate
+import ReinforcementLearningEnvironmentDiscrete: reset!, interact!, getstate
 env = DiscreteMaze()
 reset!(env)
 @test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}

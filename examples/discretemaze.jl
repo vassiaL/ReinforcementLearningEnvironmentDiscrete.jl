@@ -1,4 +1,4 @@
-using RLEnvDiscrete
+using ReinforcementLearningEnvironmentDiscrete
 using Compat: @info
 
 env = DiscreteMaze(ngoals = 5)

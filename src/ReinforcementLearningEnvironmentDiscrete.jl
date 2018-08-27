@@ -1,5 +1,5 @@
 __precompile__()
-module RLEnvDiscrete
+module ReinforcementLearningEnvironmentDiscrete
 using Parameters, Reexport, Compat, Compat.SparseArrays
 import StatsBase: sample
 import GR: imshow
