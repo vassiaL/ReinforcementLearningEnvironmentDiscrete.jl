@@ -1,26 +1,26 @@
-using ReinforcementLearningEnvironmentDiscrete
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-else
-    using Test
-end
+using Test, ReinforcementLearningEnvironmentDiscrete
 
 # write your own tests here
-import ReinforcementLearningEnvironmentDiscrete: reset!, interact!, getstate
 env = DiscreteMaze()
 reset!(env)
-@test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
-@test typeof(getstate(env)) == Tuple{Int64, Bool}
+@test typeof(interact!(env, 1)) == NamedTuple{(:observation, :reward, :isdone),
+                                              Tuple{Int64,Float64,Bool}}
+@test typeof(getstate(env)) == NamedTuple{(:observation, :isdone), 
+                                          Tuple{Int64, Bool}}
 
-# using POMDPModels
-# env = POMDPEnvironment(TigerPOMDP())
-# reset!(env)
-# @test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
-# @test typeof(getstate(env)) == Tuple{Int64, Bool}
-# env = MDPEnvironment(GridWorld())
-# reset!(env)
-# @test typeof(interact!(1, env)) == Tuple{Int64,Float64,Bool}
-# @test typeof(getstate(env)) == Tuple{Int64, Bool}
+using POMDPModels
+env = POMDPEnv(TigerPOMDP())
+reset!(env)
+@test typeof(interact!(env, 1)) == NamedTuple{(:observation, :reward, :isdone),
+                                              Tuple{Int64,Float64,Bool}}
+@test typeof(getstate(env)) == NamedTuple{(:observation, :isdone), 
+                                          Tuple{Int64, Bool}}
+env = MDPEnv(GridWorld())
+reset!(env)
+@test typeof(interact!(env, 1)) == NamedTuple{(:observation, :reward, :isdone),
+                                              Tuple{Int64,Float64,Bool}}
+@test typeof(getstate(env)) == NamedTuple{(:observation, :isdone), 
+                                          Tuple{Int64, Bool}}
 
 env = CliffWalking()
 reset!(env)
