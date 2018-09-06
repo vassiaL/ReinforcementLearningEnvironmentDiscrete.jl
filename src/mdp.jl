@@ -25,7 +25,6 @@ mutable struct MDP
     initialstates::Array{Int64, 1}
     isterminal::Array{Int64, 1}
 end
-export MDP
 
 function interact!(env::MDP, action)
     r = env.reward[action, env.state]
@@ -130,7 +129,6 @@ function treeMDP(na, depth;
     end
     MDP(DiscreteSpace(cns[end] + 1, 1), DiscreteSpace(na, 1), 1, T, r, 1:1, isterminal)
 end
-export treeMDP
 
 function emptytransprob!(v::SparseVector)
     empty!(v.nzind); empty!(v.nzval)
@@ -153,7 +151,6 @@ function setterminalstates!(mdp, range)
         end
     end
 end
-export setterminalstates!
 
 # run MDP
 

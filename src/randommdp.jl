@@ -59,4 +59,3 @@ function AbsorbingDetMDP(;ns = 10^3, na = 10)
     mdp
 end
 
-export DetMDP, DetTreeMDP, DetTreeMDPwithinrew, StochMDP, StochTreeMDP, AbsorbingDetMDP

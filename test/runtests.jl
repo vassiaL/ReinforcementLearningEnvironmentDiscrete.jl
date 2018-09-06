@@ -9,13 +9,13 @@ reset!(env)
                                           Tuple{Int64, Bool}}
 
 using POMDPModels
-env = POMDPEnvironment(TigerPOMDP())
+env = POMDPEnv(TigerPOMDP())
 reset!(env)
 @test typeof(interact!(env, 1)) == NamedTuple{(:observation, :reward, :isdone),
                                               Tuple{Int64,Float64,Bool}}
 @test typeof(getstate(env)) == NamedTuple{(:observation, :isdone), 
                                           Tuple{Int64, Bool}}
-env = MDPEnvironment(GridWorld())
+env = MDPEnv(GridWorld())
 reset!(env)
 @test typeof(interact!(env, 1)) == NamedTuple{(:observation, :reward, :isdone),
                                               Tuple{Int64,Float64,Bool}}

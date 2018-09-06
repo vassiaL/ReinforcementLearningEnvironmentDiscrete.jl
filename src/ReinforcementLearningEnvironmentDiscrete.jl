@@ -4,9 +4,9 @@ import StatsBase: sample
 import GR: imshow
 import ReinforcementLearningBase: interact!, getstate, reset!, plotenv,
 actionspace
-export interact!, getstate, reset!, plotenv, MDP, POMDPEnvironment,
-MDPEnvironment, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP, DetTreeMDPwithinrew,
-StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalkingMDP
+export interact!, getstate, reset!, plotenv, MDP, POMDPEnv,
+MDPEnv, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP, DetTreeMDPwithinrew,
+StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalking
 
 include("mdp.jl")
 include("randommdp.jl")

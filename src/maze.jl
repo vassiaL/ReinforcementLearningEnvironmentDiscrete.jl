@@ -160,12 +160,11 @@ function DiscreteMaze(; nx = 40, ny = 40,
     mdp.reward .-= stepcost
     DiscreteMaze(mdp, m, goals, nzpos)
 end
-export DiscreteMaze
 
 interact!(env::DiscreteMaze, a) = interact!(env.mdp, a)
 reset!(env::DiscreteMaze) = reset!(env.mdp)
 getstate(env::DiscreteMaze) = getstate(env.mdp)
-
+actionspace(env::DiscreteMaze) = actionspace(env.mdp)
 
 function plotenv(env::DiscreteMaze)
     goals = env.goals
