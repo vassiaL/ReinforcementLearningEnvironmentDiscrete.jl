@@ -1,5 +1,3 @@
-using POMDPModels
-
 const rng = MersenneTwister(0)
 
 mutable struct POMDPEnvironment{T,Ts,Ta}
@@ -8,7 +6,7 @@ mutable struct POMDPEnvironment{T,Ts,Ta}
     actions::Ta
 end
 POMDPEnvironment(model) = POMDPEnvironment(model, 
-                                           initial_state(model, rng),
+                                           initialstate(model, rng),
                                            actions(model))
 export POMDPEnvironment
 mutable struct MDPEnvironment{T,Ts,Ta}
@@ -17,32 +15,38 @@ mutable struct MDPEnvironment{T,Ts,Ta}
     actions::Ta
 end
 MDPEnvironment(model) = MDPEnvironment(model,
-                                       initial_state(model, rng),
+                                       initialstate(model, rng),
                                        actions(model))
 export MDPEnvironment
 
 observation_index(env, o) = Int64(o) + 1
 
-function interact!(action, env::POMDPEnvironment) 
+function interact!(env::POMDPEnvironment, action) 
     s, o, r = generate_sor(env.model, env.state, env.actions[action], rng)
     env.state = s
-    observation_index(env.model, o), r, isterminal(env.model, s)
+    (observation = observation_index(env.model, o), 
+     reward = r, 
+     isdone = isterminal(env.model, s))
 end
 function reset!(env::Union{POMDPEnvironment, MDPEnvironment})
-    env.state = initial_state(env.model, rng)
+    env.state = initialstate(env.model, rng)
+    (observation = env.state)
 end
 function getstate(env::POMDPEnvironment)
-    observation_index(env.model, generate_o(env.model, env.state, rng)),
-    isterminal(env.model, env.state)
+    (observation = observation_index(env.model, generate_o(env.model, env.state, rng)),
+     isdone = isterminal(env.model, env.state))
 end
 
-function interact!(action, env::MDPEnvironment)
+function interact!(env::MDPEnvironment, action)
     s = rand(rng, transition(env.model, env.state, env.actions[action]))
     r = reward(env.model, env.state, env.actions[action])
     env.state = s
-    state_index(env.model, s), r, isterminal(env.model, s)
+    (observation = state_index(env.model, s), 
+     reward = r, 
+     isdone = isterminal(env.model, s))
 end
 function getstate(env::MDPEnvironment)
-    state_index(env.model, env.state), isterminal(env.model, env.state)
+    (observation = state_index(env.model, env.state), 
+     isdone = isterminal(env.model, env.state))
 end
 

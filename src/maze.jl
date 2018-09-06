@@ -94,7 +94,7 @@ function mazetomdp(maze, ngoalstates = 1, goalrewards = 1,
                 T[aind, s] = SparseVector(ns, states, weights)
             else
                 nexts = mapping[posto1d(maze, nextpos)]
-                T[aind, s] = getprobvecdeterministic(ns, nexts, nexts)
+                T[aind, s] = sparsevec([nexts], [1.], ns)
                 if nexts in goals
                     R[aind, s] = typeof(goalrewards) <: Number ? goalrewards : 
                                 goalrewards[findfirst(x -> x == nexts, goals)]
@@ -102,7 +102,10 @@ function mazetomdp(maze, ngoalstates = 1, goalrewards = 1,
             end
         end
     end
-    MDP(ns, na, rand(1:ns), T, R, isinitial, isterminal), goals, nzpos
+    MDP(DiscreteSpace(ns, 1), 
+        DiscreteSpace(na, 1), 
+        rand(1:ns), T, R, isinitial, isterminal), 
+    goals, nzpos
 end
 
 function breaksomewalls(m; f = 1/50, 
@@ -159,16 +162,16 @@ function DiscreteMaze(; nx = 40, ny = 40,
 end
 export DiscreteMaze
 
-interact!(a, env::DiscreteMaze) = interact!(a, env.mdp)
+interact!(env::DiscreteMaze, a) = interact!(env.mdp, a)
 reset!(env::DiscreteMaze) = reset!(env.mdp)
 getstate(env::DiscreteMaze) = getstate(env.mdp)
 
 
-function plotenv(env::DiscreteMaze, s, a, r, d)
+function plotenv(env::DiscreteMaze)
     goals = env.goals
     nzpos = env.nzpos
     m = deepcopy(env.maze)
     m[nzpos[goals]] .= 3
-    m[nzpos[s]] = 2
+    m[nzpos[env.mdp.state]] = 2
     imshow(m, colormap = 21, size = (400, 400))
 end

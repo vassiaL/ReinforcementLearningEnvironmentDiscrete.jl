@@ -1,14 +1,17 @@
-__precompile__()
 module ReinforcementLearningEnvironmentDiscrete
-using Parameters, Reexport, Compat, Compat.SparseArrays
+using SparseArrays, POMDPModels, Random, ReinforcementLearningBase, LinearAlgebra
 import StatsBase: sample
 import GR: imshow
-@reexport using ReinforcementLearning
-import ReinforcementLearning: interact!, getstate, reset!,
-getprobvecdeterministic, callback!, plotenv
+import ReinforcementLearningBase: interact!, getstate, reset!, plotenv,
+actionspace
+export interact!, getstate, reset!, plotenv, MDP, POMDPEnvironment,
+MDPEnvironment, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP, DetTreeMDPwithinrew,
+StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalkingMDP
 
+include("mdp.jl")
+include("randommdp.jl")
 include("cliffwalking.jl")
 include("maze.jl")
-# include("pomdps.jl") removed until ready for julia 0.7
+include("pomdps.jl") 
 
 end # module
