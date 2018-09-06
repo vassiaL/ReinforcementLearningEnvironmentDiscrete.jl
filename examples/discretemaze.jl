@@ -1,8 +1,7 @@
-using ReinforcementLearningEnvironmentDiscrete
-using Compat: @info
+using ReinforcementLearningEnvironmentDiscrete, ReinforcementLearning
 
 env = DiscreteMaze(ngoals = 5)
-rlsetup = RLSetup(SmallBackups(na = 4, ns = env.mdp.ns, γ = .99), 
+rlsetup = RLSetup(SmallBackups(na = 4, ns = env.mdp.observationspace.n, γ = .99), 
                   env, ConstantNumberSteps(200), 
                   policy = EpsilonGreedyPolicy(.1),
                   callbacks = [Visualize()])
