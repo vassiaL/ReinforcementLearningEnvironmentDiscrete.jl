@@ -1,17 +1,16 @@
 module ReinforcementLearningEnvironmentDiscrete
-using SparseArrays, POMDPModels, Random, ReinforcementLearningBase, LinearAlgebra
-import StatsBase: sample
+using ReinforcementLearningBase, SparseArrays, POMDPModels, Random, LinearAlgebra
+import StatsBase: sample, wsample
 import GR: imshow
-import ReinforcementLearningBase: interact!, getstate, reset!, plotenv,
-actionspace
-export interact!, getstate, reset!, plotenv, MDP, POMDPEnv,
-MDPEnv, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP, DetTreeMDPwithinrew,
-StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalking
+import ReinforcementLearningBase: interact!, getstate, reset!, plotenv, actionspace
 
 include("mdp.jl")
 include("randommdp.jl")
 include("cliffwalking.jl")
 include("maze.jl")
 include("pomdps.jl") 
+
+export MDP, POMDPEnv, MDPEnv, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP,
+DetTreeMDPwithinrew, StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalking
 
 end # module

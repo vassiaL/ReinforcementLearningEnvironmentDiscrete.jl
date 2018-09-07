@@ -36,7 +36,7 @@ function getstate(env::MDP)
 end
 function reset!(env::MDP)
     env.state = rand(env.initialstates)
-    (observation = env.state)
+    (observation = env.state, )
 end
 
 """
@@ -154,21 +154,6 @@ end
 
 # run MDP
 
-function sample(w::Array{Float64, 1})
-    r = rand()
-    c = w[1]
-    n = length(w)
-    @inbounds for i in 1:n
-        if c > r
-            return i
-        end
-        c += w[i]
-    end
-    return n
-end
-function sample(w::SparseVector)
-    w.nzind[sample(w.nzval)]
-end
 
 """
     run!(mdp::MDP, action::Int64)
@@ -179,7 +164,7 @@ function run!(mdp::MDP, action::Int64)
     if mdp.isterminal[mdp.state] == 1
         reset!(mdp)
     else
-        mdp.state = sample(mdp.trans_probs[action, mdp.state])
+        mdp.state = wsample(mdp.trans_probs[action, mdp.state])
     end
 end
 
