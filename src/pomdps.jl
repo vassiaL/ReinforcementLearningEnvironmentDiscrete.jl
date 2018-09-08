@@ -30,7 +30,7 @@ function interact!(env::POMDPEnv, action)
 end
 function reset!(env::Union{POMDPEnv, MDPEnv})
     env.state = initialstate(env.model, rng)
-    (observation = env.state)
+    (observation = env.state,)
 end
 function getstate(env::POMDPEnv)
     (observation = observation_index(env.model, generate_o(env.model, env.state, rng)),
