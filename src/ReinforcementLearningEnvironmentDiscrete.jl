@@ -1,5 +1,5 @@
 module ReinforcementLearningEnvironmentDiscrete
-using ReinforcementLearningBase, SparseArrays, POMDPModels, Random, LinearAlgebra
+using ReinforcementLearningBase, SparseArrays, POMDPs, POMDPModels, Random, LinearAlgebra
 import StatsBase: sample, wsample
 import GR: imshow
 import ReinforcementLearningBase: interact!, getstate, reset!, plotenv, actionspace
