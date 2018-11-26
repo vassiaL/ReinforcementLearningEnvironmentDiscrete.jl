@@ -16,14 +16,18 @@ every (action, state) pair of a (potentially sparse) array that sums to 1 (see
 probabilities) `na`x`ns` - array of `reward`, array of initial states
 `initialstates`, and `ns` - array of 0/1 indicating if a state is terminal.
 """
-mutable struct MDP 
+mutable struct MDP{T}
     observationspace::DiscreteSpace
     actionspace::DiscreteSpace
     state::Int64
-    trans_probs::Array{AbstractArray, 2}
+    trans_probs::Array{T, 2}
     reward::Array{Float64, 2}
     initialstates::Array{Int64, 1}
     isterminal::Array{Int64, 1}
+end
+function MDP(ospace, aspace, state, trans_probs::Array{T, 2}, 
+             reward, initialstates, isterminal) where T
+    MDP{T}(ospace, aspace, state, trans_probs, reward, initialstates, isterminal)
 end
 
 function interact!(env::MDP, action)
@@ -54,8 +58,8 @@ getprobvecrandom(n) = normalize(rand(n), 1)
 Returns an array of length `n` that sums to 1 where all elements outside of
 `min`:`max` are zero.
 """
-getprobvecrandom(n, min, max) = SparseVector(n, collect(min:max),
-                                             getprobvecrandom(max - min + 1))
+getprobvecrandom(n, min, max) = sparsevec(collect(min:max),
+                                          getprobvecrandom(max - min + 1), n)
 """
     getprobvecuniform(n)  = fill(1/n, n)
 """
@@ -66,7 +70,7 @@ getprobvecuniform(n) = fill(1/n, n)
 Returns a `SparseVector` of length `n` where one element in `min`:`max` has 
 value 1.
 """
-getprobvecdeterministic(n, min = 1, max = n) = SparseVector(n, [rand(min:max)], [1.])
+getprobvecdeterministic(n, min = 1, max = n) = sparsevec([rand(min:max)], [1.], n)
 # constructors
 """
     MDP(ns, na; init = "random")
