@@ -1,7 +1,7 @@
 using Test, ReinforcementLearningEnvironmentDiscrete, POMDPModels,
 ReinforcementLearningBase
 
-for env in [MDP(), MDPEnv(GridWorld()), POMDPEnv(TigerPOMDP()), DiscreteMaze()]
+for env in [MDP(), MDPEnv(LegacyGridWorld()), POMDPEnv(TigerPOMDP()), DiscreteMaze()]
     test_envinterface(env)
 end
 
