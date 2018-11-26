@@ -91,7 +91,7 @@ function mazetomdp(maze, ngoalstates = 1, goalrewards = 1,
                 end
                 states = map(p -> mapping[posto1d(maze, p)], positions)
                 weights /= sum(weights)
-                T[aind, s] = SparseVector(ns, states, weights)
+                T[aind, s] = sparsevec(states, weights, ns)
             else
                 nexts = mapping[posto1d(maze, nextpos)]
                 T[aind, s] = sparsevec([nexts], [1.], ns)
@@ -157,7 +157,6 @@ function DiscreteMaze(; nx = 40, ny = 40,
     breaksomewalls(m)
     mdp, goals, nzpos = mazetomdp(m, ngoals, goalrewards, stepcost,
                                   stochastic, neighbourstateweight)
-    mdp.reward .-= stepcost
     DiscreteMaze(mdp, m, goals, nzpos)
 end
 
