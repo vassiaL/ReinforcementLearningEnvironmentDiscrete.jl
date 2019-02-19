@@ -1,5 +1,5 @@
 """
-    mutable struct MDP 
+    mutable struct MDP
         ns::Int64
         na::Int64
         state::Int64
@@ -7,7 +7,7 @@
         reward::Array{Float64, 2}
         initialstates::Array{Int64, 1}
         isterminal::Array{Int64, 1}
-    
+
 A Markov Decision Process with `ns` states, `na` actions, current `state`,
 `na`x`ns` - array of transition probabilites `trans_props` which consists for
 every (action, state) pair of a (potentially sparse) array that sums to 1 (see
@@ -25,7 +25,7 @@ mutable struct MDP{T}
     initialstates::Array{Int64, 1}
     isterminal::Array{Int64, 1}
 end
-function MDP(ospace, aspace, state, trans_probs::Array{T, 2}, 
+function MDP(ospace, aspace, state, trans_probs::Array{T, 2},
              reward, initialstates, isterminal) where T
     MDP{T}(ospace, aspace, state, trans_probs, reward, initialstates, isterminal)
 end
@@ -44,7 +44,7 @@ function reset!(env::MDP)
 end
 
 """
-    getprobvecrandom(n) 
+    getprobvecrandom(n)
 
 Returns an array of length `n` that sums to 1. More precisely, the array is a
 sample of a [Dirichlet
@@ -63,11 +63,11 @@ getprobvecrandom(n, min, max) = sparsevec(collect(min:max),
 """
     getprobvecuniform(n)  = fill(1/n, n)
 """
-getprobvecuniform(n) = fill(1/n, n) 
+getprobvecuniform(n) = fill(1/n, n)
 """
     getprobvecdeterministic(n, min = 1, max = n)
 
-Returns a `SparseVector` of length `n` where one element in `min`:`max` has 
+Returns a `SparseVector` of length `n` where one element in `min`:`max` has
 value 1.
 """
 getprobvecdeterministic(n, min = 1, max = n) = sparsevec([rand(min:max)], [1.], n)
@@ -77,7 +77,7 @@ getprobvecdeterministic(n, min = 1, max = n) = sparsevec([rand(min:max)], [1.], 
     MDP(; ns = 10, na = 4, init = "random")
 
 Return MDP with `init in ("random", "uniform", "deterministic")`, where the
-keyword init determines how to construct the transition probabilites (see also 
+keyword init determines how to construct the transition probabilites (see also
 [`getprobvecrandom`](@ref), [`getprobvecuniform`](@ref),
 [`getprobvecdeterministic`](@ref)).
 """
@@ -100,8 +100,8 @@ If `init` is random, the `branchingfactor` determines how many possible states a
 (action, state) pair has. If `init = "deterministic"` the `branchingfactor =
 na`.
 """
-function treeMDP(na, depth; 
-                 init = "random", 
+function treeMDP(na, depth;
+                 init = "random",
                  branchingfactor = 3)
     isdet = (init == "deterministic")
     if isdet
@@ -169,6 +169,7 @@ function run!(mdp::MDP, action::Int64)
         reset!(mdp)
     else
         mdp.state = wsample(mdp.trans_probs[action, mdp.state])
+        (observation = mdp.state,)
     end
 end
 
