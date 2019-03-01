@@ -1,3 +1,4 @@
+using Distributions
 """
     mutable struct MDP
         ns::Int64
@@ -29,7 +30,6 @@ function MDP(ospace, aspace, state, trans_probs::Array{T, 2},
              reward, initialstates, isterminal) where T
     MDP{T}(ospace, aspace, state, trans_probs, reward, initialstates, isterminal)
 end
-
 function interact!(env::MDP, action)
     r = env.reward[action, env.state]
     run!(env, action)
@@ -43,6 +43,35 @@ function reset!(env::MDP)
     (observation = env.state, )
 end
 
+mutable struct ChangeMDP{TMDP}
+    ns::Int64
+    actionspace::DiscreteSpace
+    stayprobability::Float64
+    stochasticity::Float64
+    mdp::TMDP
+    switchflag::Bool
+end
+function ChangeMDP(; ns = 10, na = 4, stayprobability = .99, stochasticity = 0.1)
+    mdpbase = MDP(ns, na, init = "random")
+    T = [rand(Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
+    mdpbase.trans_probs = copy(T)
+    ChangeMDP(ns, DiscreteSpace(na, 1), stayprobability, stochasticity, mdpbase, false)
+end
+getstate(env::ChangeMDP) = getstate(env.mdp)
+reset!(env::ChangeMDP) = reset!(env.mdp)
+function interact!(env::ChangeMDP, action)
+    env.switchflag = false
+    # Switch or not!
+    r=rand()
+    if r > env.stayprobability
+        #println("Switch!")
+        T = rand(Dirichlet(env.ns, env.stochasticity))
+        env.mdp.trans_probs[action, env.mdp.state] = copy(T)
+        env.switchflag = true
+    end
+    interact!(env.mdp, action)
+end
+actionspace(env::ChangeMDP) = actionspace(env.mdp)
 """
     getprobvecrandom(n)
 
@@ -178,5 +207,3 @@ end
 
 """
 run!(mdp::MDP, policy::Array{Int64, 1}) = run!(mdp, policy[mdp.state])
-
-

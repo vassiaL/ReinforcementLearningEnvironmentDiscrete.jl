@@ -196,6 +196,38 @@ reset!(env::DiscreteMaze) = reset!(env.mdp)
 getstate(env::DiscreteMaze) = getstate(env.mdp)
 actionspace(env::DiscreteMaze) = actionspace(env.mdp)
 
+mutable struct ChangeDiscreteMaze{DiscreteMaze}
+    discretemaze::DiscreteMaze
+    stepcounter::Int
+    switchstep::Int
+end
+function ChangeDiscreteMaze(; switchstep = 10^2)
+    dm = DiscreteMaze()
+    stepcounter = 0
+    ChangeDiscreteMaze(dm, stepcounter, switchstep)
+end
+function ChangeDiscreteMaze(maze; switchstep = 10^2)
+    dm = DiscreteMaze(maze, compressed = false)
+    stepcounter = 0
+    ChangeDiscreteMaze(dm, stepcounter, switchstep)
+end
+
+reset!(env::ChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
+getstate(env::ChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
+actionspace(env::ChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
+function interact!(env::ChangeDiscreteMaze, action)
+    env.stepcounter += 1
+    # Switch or not!
+    if env.stepcounter == env.switchstep
+        println("Switch!")
+        env.discretemaze.maze[58] = 0
+        env.discretemaze.maze[69] = 1
+        setTandR!(env.discretemaze)
+    end
+    interact!(env.discretemaze.mdp, action)
+end
+plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
+
 function plotenv(env::DiscreteMaze)
     goals = env.goals
     mazefromstate = env.mazefromstate

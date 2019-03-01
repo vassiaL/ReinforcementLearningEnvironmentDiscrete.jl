@@ -8,9 +8,9 @@ include("mdp.jl")
 include("randommdp.jl")
 include("cliffwalking.jl")
 include("maze.jl")
-include("pomdps.jl") 
+include("pomdps.jl")
 
-export MDP, POMDPEnv, MDPEnv, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP,
+export MDP, ChangeMDP, POMDPEnv, MDPEnv, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP,
 DetTreeMDPwithinrew, StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalking
 
 end # module
