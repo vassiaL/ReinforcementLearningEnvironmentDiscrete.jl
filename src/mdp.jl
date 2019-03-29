@@ -57,6 +57,7 @@ function ChangeMDP(; ns = 10, na = 4, stayprobability = .99, stochasticity = 0.1
     mdpbase.trans_probs = copy(T)
     ChangeMDP(ns, DiscreteSpace(na, 1), stayprobability, stochasticity, mdpbase, false)
 end
+export ChangeMDP
 getstate(env::ChangeMDP) = getstate(env.mdp)
 reset!(env::ChangeMDP) = reset!(env.mdp)
 function interact!(env::ChangeMDP, action)

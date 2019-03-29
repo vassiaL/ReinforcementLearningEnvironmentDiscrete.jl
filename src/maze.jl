@@ -200,16 +200,28 @@ mutable struct ChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
     stepcounter::Int
     switchstep::Int
+    switchflag::Bool # Used for RecordSwitches callback
+    pos_switchto0::Int
+    pos_switchto1::Int
 end
 function ChangeDiscreteMaze(; switchstep = 10^2)
     dm = DiscreteMaze()
     stepcounter = 0
-    ChangeDiscreteMaze(dm, stepcounter, switchstep)
+    pos_switchto0 = rand(1:length(reshape(dm.maze, :)))
+    pos_switchto1 = rand(1:length(reshape(dm.maze, :)))
+    ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
 function ChangeDiscreteMaze(maze; switchstep = 10^2)
     dm = DiscreteMaze(maze, compressed = false)
     stepcounter = 0
-    ChangeDiscreteMaze(dm, stepcounter, switchstep)
+    pos_switchto0 = rand(1:length(reshape(maze, :)))
+    pos_switchto1 = rand(1:length(reshape(maze, :)))
+    ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
+end
+function ChangeDiscreteMaze(maze, pos_switchto0, pos_switchto1; switchstep = 10^2)
+    dm = DiscreteMaze(maze, compressed = false)
+    stepcounter = 0
+    ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
 
 reset!(env::ChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
@@ -217,15 +229,21 @@ getstate(env::ChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
 actionspace(env::ChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
 function interact!(env::ChangeDiscreteMaze, action)
     env.stepcounter += 1
+    env.switchflag = false
     # Switch or not!
     if env.stepcounter == env.switchstep
-        println("Switch!")
-        env.discretemaze.maze[58] = 0
-        env.discretemaze.maze[69] = 1
-        setTandR!(env.discretemaze)
+        # println("Switch!")
+        env.switchflag = true
+        setupswitch!(env)
     end
     interact!(env.discretemaze.mdp, action)
 end
+function setupswitch!(env)
+    env.discretemaze.maze[env.pos_switchto0] = 0
+    env.discretemaze.maze[env.pos_switchto1] = 1
+    setTandR!(env.discretemaze)
+end
+
 plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
 
 function plotenv(env::DiscreteMaze)
