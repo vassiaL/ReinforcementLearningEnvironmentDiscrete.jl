@@ -256,7 +256,6 @@ function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
 
     dm = DiscreteMaze(nx = nx, ny = ny, ngoals = ngoals, nwalls = nwalls,
                        compressed = compressed, stochastic = stochastic)
-
     RandomChangeDiscreteMaze(dm, n, changeprobability, false)
 end
 function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.99)
