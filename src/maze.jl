@@ -204,22 +204,30 @@ mutable struct ChangeDiscreteMaze{DiscreteMaze}
     pos_switchto0::Int
     pos_switchto1::Int
 end
-function ChangeDiscreteMaze(; switchstep = 10^2)
+function ChangeDiscreteMaze(; switchstep = 10^2, stochastic = false,
+                            neighbourstateweight = stochastic ? .05 : 0.)
     dm = DiscreteMaze()
     stepcounter = 0
     pos_switchto0 = rand(1:length(reshape(dm.maze, :)))
     pos_switchto1 = rand(1:length(reshape(dm.maze, :)))
     ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
-function ChangeDiscreteMaze(maze; switchstep = 10^2)
-    dm = DiscreteMaze(maze, compressed = false)
+function ChangeDiscreteMaze(maze; switchstep = 10^2, stochastic = false,
+                            neighbourstateweight = stochastic ? .05 : 0.)
+
+    dm = DiscreteMaze(maze, compressed = false, stochastic = stochastic,
+                        neighbourstateweight = neighbourstateweight)
     stepcounter = 0
     pos_switchto0 = rand(1:length(reshape(maze, :)))
     pos_switchto1 = rand(1:length(reshape(maze, :)))
     ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
-function ChangeDiscreteMaze(maze, pos_switchto0, pos_switchto1; switchstep = 10^2)
-    dm = DiscreteMaze(maze, compressed = false)
+function ChangeDiscreteMaze(maze, pos_switchto0, pos_switchto1; switchstep = 10^2,
+                            stochastic = false,
+                            neighbourstateweight = stochastic ? .05 : 0.)
+
+    dm = DiscreteMaze(maze, compressed = false, stochastic = stochastic,
+                        neighbourstateweight = neighbourstateweight)
     stepcounter = 0
     ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
@@ -252,13 +260,16 @@ mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     switchflag::Bool # Used for RecordSwitches callback
 end
 function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
-                   compressed = false, stochastic = false, n = 5, changeprobability = 0.99)
+                   compressed = false, stochastic = false,
+                   neighbourstateweight = stochastic ? .05 : 0., n = 5,
+                   changeprobability = 0.999)
 
     dm = DiscreteMaze(nx = nx, ny = ny, ngoals = ngoals, nwalls = nwalls,
-                       compressed = compressed, stochastic = stochastic)
+                       compressed = compressed, stochastic = stochastic,
+                       neighbourstateweight = neighbourstateweight)
     RandomChangeDiscreteMaze(dm, n, changeprobability, false)
 end
-function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.99)
+function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.999)
     dm = DiscreteMaze(maze, compressed = false)
     RandomChangeDiscreteMaze(dm, n, changeprobability, false)
 end
