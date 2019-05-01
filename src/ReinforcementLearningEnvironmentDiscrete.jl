@@ -4,6 +4,8 @@ import StatsBase: sample, wsample
 import GR: imshow
 import ReinforcementLearningBase: interact!, getstate, reset!, plotenv, actionspace
 
+const ENV_RNG = MersenneTwister(0)
+
 include("mdp.jl")
 include("randommdp.jl")
 include("cliffwalking.jl")
