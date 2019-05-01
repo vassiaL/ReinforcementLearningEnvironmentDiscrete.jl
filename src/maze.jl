@@ -34,14 +34,14 @@ function checkpos(maze, pos)
 end
 
 function addrandomwall!(maze)
-    startpos = rand(findall(x -> x != 0, maze[:]))
+    startpos = rand(ENV_RNG, findall(x -> x != 0, maze[:]))
     startpos = indto2d(maze, startpos)
     starttouch = checkpos(maze, startpos)
     if starttouch > 0
         return 0
     end
     endx, endy = startpos
-    if rand(0:1) == 0 # horizontal
+    if rand(ENV_RNG, 0:1) == 0 # horizontal
         while checkpos(maze, [endx, startpos[2]]) == 0
             endx += 1
         end
@@ -115,13 +115,13 @@ function breaksomewalls!(m; f = 1/50, n = nothing)
     for i in 1:length(m)
         m[i] == 0 && isinsideframe(m, i) && push!(zeros, i)
     end
-    pos = sample(zeros, n_effective(n, f, zeros), replace = false)
+    pos = sample(ENV_RNG, zeros, n_effective(n, f, zeros), replace = false)
     m[pos] .= 1
     m
 end
 function addobstacles!(m; f = 1/100, n = nothing)
     nz = findall(x -> x == 1, reshape(m, :))
-    pos = sample(nz, n_effective(n, f, nz), replace = false)
+    pos = sample(ENV_RNG, nz, n_effective(n, f, nz), replace = false)
     m[pos] .= 0
     m
 end
@@ -171,13 +171,13 @@ function DiscreteMaze(maze; ngoals = 1, goalrewards = 1., stepcost = 0,
     legalstates = statefrommaze[nzpos]
     ns = length(mazefromstate)
     T = Array{SparseVector{Float64,Int}}(undef, na, ns)
-    goals = sort(sample(legalstates, ngoals, replace = false))
+    goals = sort(sample(ENV_RNG, legalstates, ngoals, replace = false))
     R = -ones(na, ns) * stepcost
     isterminal = zeros(Int, ns); isterminal[goals] .= 1
     isinitial = setdiff(legalstates, goals)
     res = DiscreteMaze(MDP(DiscreteSpace(ns, 1),
                            DiscreteSpace(na, 1),
-                           rand(legalstates),
+                           rand(ENV_RNG, legalstates),
                            T, R,
                            isinitial, isterminal),
                        maze,
@@ -208,8 +208,8 @@ function ChangeDiscreteMaze(; switchstep = 10^2, stochastic = false,
                             neighbourstateweight = stochastic ? .05 : 0.)
     dm = DiscreteMaze()
     stepcounter = 0
-    pos_switchto0 = rand(1:length(reshape(dm.maze, :)))
-    pos_switchto1 = rand(1:length(reshape(dm.maze, :)))
+    pos_switchto0 = rand(ENV_RNG, 1:length(reshape(dm.maze, :)))
+    pos_switchto1 = rand(ENV_RNG, 1:length(reshape(dm.maze, :)))
     ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
 function ChangeDiscreteMaze(maze; switchstep = 10^2, stochastic = false,
@@ -218,8 +218,8 @@ function ChangeDiscreteMaze(maze; switchstep = 10^2, stochastic = false,
     dm = DiscreteMaze(maze, compressed = false, stochastic = stochastic,
                         neighbourstateweight = neighbourstateweight)
     stepcounter = 0
-    pos_switchto0 = rand(1:length(reshape(maze, :)))
-    pos_switchto1 = rand(1:length(reshape(maze, :)))
+    pos_switchto0 = rand(ENV_RNG, 1:length(reshape(maze, :)))
+    pos_switchto1 = rand(ENV_RNG, 1:length(reshape(maze, :)))
     ChangeDiscreteMaze(dm, stepcounter, switchstep, false, pos_switchto0, pos_switchto1)
 end
 function ChangeDiscreteMaze(maze, pos_switchto0, pos_switchto1; switchstep = 10^2,
@@ -277,7 +277,7 @@ end
 function interact!(env::RandomChangeDiscreteMaze, action)
     env.switchflag = false
     # Switch or not!
-    r=rand()
+    r=rand(ENV_RNG)
     if r > env.changeprobability
         # println("Switch!")
         env.switchflag = true
