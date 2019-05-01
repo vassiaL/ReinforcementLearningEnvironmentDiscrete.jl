@@ -10,7 +10,7 @@ function DetMDP(; ns = 10^4, na = 10)
 end
 
 """
-    DetTreeMDP(; na = 4, depth = 5) 
+    DetTreeMDP(; na = 4, depth = 5)
 
 Returns a treeMDP with random rewards at the leaf nodes.
 """
@@ -26,7 +26,7 @@ Returns a treeMDP with random rewards.
 function DetTreeMDPwithinrew(; args...)
     mdp = DetTreeMDP(; args...)
     nonterminals = findall(x -> x == 0, mdp.isterminal)
-    mdp.reward[:, nonterminals] = -rand(mdp.na, length(nonterminals))
+    mdp.reward[:, nonterminals] = -rand(ENV_RNG, mdp.na, length(nonterminals))
     mdp
 end
 

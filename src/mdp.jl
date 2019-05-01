@@ -43,7 +43,7 @@ function getstate(env::MDP)
     (observation = env.state, isdone = env.isterminal[env.state] == 1)
 end
 function reset!(env::MDP)
-    env.state = rand(env.initialstates)
+    env.state = rand(ENV_RNG, env.initialstates)
     (observation = env.state, )
 end
 
@@ -74,7 +74,7 @@ struct NormalNextStateReward
     mean::Vector{Float64}
     std::Vector{Float64}
 end
-reward(r::NormalNextStateReward, s, a, s′) = r.mean[s′] + randn() * r.std[s′]
+reward(r::NormalNextStateReward, s, a, s′) = r.mean[s′] + randn(ENV_RNG) * r.std[s′]
 """
     struct NormalStateActionReward
         mean::Array{Float64, 2}
@@ -86,7 +86,7 @@ struct NormalStateActionReward
     mean::Array{Float64, 2}
     std::Array{Float64, 2}
 end
-reward(r::NormalStateActionReward, s, a, s′) = r.mean[a, s] + randn() * r.std[a, s]
+reward(r::NormalStateActionReward, s, a, s′) = r.mean[a, s] + randn(ENV_RNG) * r.std[a, s]
 
 """
     getprobvecrandom(n)
@@ -96,7 +96,7 @@ sample of a [Dirichlet
 distribution](https://en.wikipedia.org/wiki/Dirichlet_distribution) with `n`
 categories and ``α_1 = ⋯  = α_n = 1``.
 """
-getprobvecrandom(n) = normalize(rand(n), 1)
+getprobvecrandom(n) = normalize(rand(ENV_RNG, n), 1)
 """
     getprobvecrandom(n, min, max)
 
@@ -115,7 +115,7 @@ getprobvecuniform(n) = fill(1/n, n)
 Returns a `SparseVector` of length `n` where one element in `min`:`max` has
 value 1.
 """
-getprobvecdeterministic(n, min = 1, max = n) = sparsevec([rand(min:max)], [1.], n)
+getprobvecdeterministic(n, min = 1, max = n) = sparsevec([rand(ENV_RNG, min:max)], [1.], n)
 # constructors
 """
     MDP(ns, na; init = "random")
@@ -127,10 +127,10 @@ keyword init determines how to construct the transition probabilites (see also
 [`getprobvecdeterministic`](@ref)).
 """
 function MDP(ns, na; init = "random")
-    r = randn(na, ns)
+    r = randn(ENV_RNG, na, ns)
     func = eval(Meta.parse("getprobvec" * init))
     T = [func(ns) for a in 1:na, s in 1:ns]
-    MDP(DiscreteSpace(ns, 1), DiscreteSpace(na, 1), rand(1:ns), T, r,
+    MDP(DiscreteSpace(ns, 1), DiscreteSpace(na, 1), rand(ENV_RNG, 1:ns), T, r,
         1:ns, zeros(ns))
 end
 MDP(; ns = 10, na = 4, init = "random") = MDP(ns, na, init = init)
@@ -171,7 +171,7 @@ function treeMDP(na, depth;
     isterminal = [zeros(cns[end]); 1]
     for s in cns[end-1]+1:cns[end]
         for a in 1:na
-            r[a, s] = -rand()
+            r[a, s] = -rand(ENV_RNG)
             T[a, s] = getprobvecdeterministic(cns[end] + 1, cns[end] + 1,
                                               cns[end] + 1)
         end
@@ -213,7 +213,7 @@ function run!(mdp::MDP, action::Int64)
     if mdp.isterminal[mdp.state] == 1
         reset!(mdp)
     else
-        mdp.state = wsample(mdp.trans_probs[action, mdp.state])
+        mdp.state = wsample(ENV_RNG, mdp.trans_probs[action, mdp.state])
         (observation = mdp.state,)
     end
 end
@@ -223,5 +223,4 @@ end
 
 """
 run!(mdp::MDP, policy::Array{Int64, 1}) = run!(mdp, policy[mdp.state])
-
 
