@@ -54,7 +54,7 @@ end
 function ChangeMDP(; ns = 10, na = 4, stayprobability = .99, stochasticity = 0.1)
     mdpbase = MDP(ns, na, init = "random")
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
-    mdpbase.trans_probs = copy(T)
+    mdpbase.trans_probs = deepcopy(T)
     ChangeMDP(ns, DiscreteSpace(na, 1), stayprobability, stochasticity, mdpbase, false)
 end
 export ChangeMDP
@@ -63,11 +63,11 @@ reset!(env::ChangeMDP) = reset!(env.mdp)
 function interact!(env::ChangeMDP, action)
     env.switchflag = false
     # Switch or not!
-    r=aand()
+    r = rand(ENV_RNG)
     if r > env.stayprobability
         #println("Switch!")
-        T =rand(ENV_RNG, Dirichlet(env.ns, env.stochasticity))
-        env.mdp.trans_probs[action, env.mdp.state] = copy(T)
+        T = rand(ENV_RNG, Dirichlet(env.ns, env.stochasticity))
+        env.mdp.trans_probs[action, env.mdp.state] = deepcopy(T)
         env.switchflag = true
     end
     interact!(env.mdp, action)
