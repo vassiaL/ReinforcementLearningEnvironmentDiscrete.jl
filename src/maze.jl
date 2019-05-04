@@ -248,10 +248,10 @@ function setupswitch!(env)
     env.discretemaze.maze[env.pos_switchto1] = 1
     setTandR!(env.discretemaze)
 end
-# reset!(env::ChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
-# getstate(env::ChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
-# actionspace(env::ChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
-# plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
+reset!(env::ChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
+getstate(env::ChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
+actionspace(env::ChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
+plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
 
 mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
@@ -259,7 +259,7 @@ mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     changeprobability::Float64
     switchflag::Bool # Used for RecordSwitches callback
     seed::Any
-    rng::MersenneTwister
+    rng::MersenneTwister # Used only for switches!
 end
 function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
                    compressed = false, stochastic = false,
@@ -281,11 +281,8 @@ end
 
 function interact!(env::RandomChangeDiscreteMaze, action)
     env.switchflag = false
-    # Switch or not!
     r = rand(env.rng)
-    #@show r
-    if r > env.changeprobability
-        # println("Switch!")
+    if r > env.changeprobability # Switch or not!
         env.switchflag = true
         breaksomewalls!(env.discretemaze.maze, n = env.n, rng = env.rng)
         addobstacles!(env.discretemaze.maze, n = env.n, rng = env.rng)
@@ -293,10 +290,10 @@ function interact!(env::RandomChangeDiscreteMaze, action)
     end
     interact!(env.discretemaze.mdp, action)
 end
-reset!(env::Union{ChangeDiscreteMaze,RandomChangeDiscreteMaze}) = reset!(env.discretemaze.mdp)
-getstate(env::Union{ChangeDiscreteMaze,RandomChangeDiscreteMaze}) = getstate(env.discretemaze.mdp)
-actionspace(env::Union{ChangeDiscreteMaze,RandomChangeDiscreteMaze}) = actionspace(env.discretemaze.mdp)
-plotenv(env::Union{ChangeDiscreteMaze,RandomChangeDiscreteMaze}) = plotenv(env.discretemaze)
+reset!(env::RandomChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
+getstate(env::RandomChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
+actionspace(env::RandomChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
+plotenv(env::RandomChangeDiscreteMaze) = plotenv(env.discretemaze)
 
 function plotenv(env::DiscreteMaze)
     goals = env.goals
