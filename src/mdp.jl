@@ -68,8 +68,9 @@ reset!(env::ChangeMDP) = reset!(env.mdp)
 function interact!(env::ChangeMDP, action)
     env.switchflag = false
     r = rand(env.rng)
+    # @show r
     if r > env.stayprobability # Switch or not!
-        @show r
+        #println("Switch!")
         # Change only current s-a pair
         # T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
         # env.mdp.trans_probs[action, env.mdp.state] = deepcopy(T)
