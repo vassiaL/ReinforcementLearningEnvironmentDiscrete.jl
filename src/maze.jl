@@ -264,7 +264,7 @@ end
 function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
                    compressed = false, stochastic = false,
                    neighbourstateweight = stochastic ? .05 : 0., n = 5,
-                   changeprobability = 0.999, seed = 3)
+                   changeprobability = 0.01, seed = 3)
 
     rng = MersenneTwister(seed)
     dm = DiscreteMaze(nx = nx, ny = ny, ngoals = ngoals, nwalls = nwalls,
@@ -272,7 +272,7 @@ function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
                        neighbourstateweight = neighbourstateweight)
     RandomChangeDiscreteMaze(dm, n, changeprobability, false, seed, rng)
 end
-function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.999,
+function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.01,
                                     seed = 3)
     rng = MersenneTwister(seed)
     dm = DiscreteMaze(maze, compressed = false)
@@ -282,7 +282,7 @@ end
 function interact!(env::RandomChangeDiscreteMaze, action)
     env.switchflag = false
     r = rand(env.rng)
-    if r > env.changeprobability # Switch or not!
+    if r < env.changeprobability # Switch or not!
         env.switchflag = true
         breaksomewalls!(env.discretemaze.maze, n = env.n, rng = env.rng)
         addobstacles!(env.discretemaze.maze, n = env.n, rng = env.rng)
