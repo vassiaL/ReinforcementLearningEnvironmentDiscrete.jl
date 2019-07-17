@@ -25,7 +25,7 @@ mutable struct MDP{T,R}
     initialstates::Array{Int64, 1}
     isterminal::Array{Int64, 1}
 end
-function MDP(ospace, aspace, state, trans_probs::Array{T, 2},
+function MDP(ospace, aspace, state, trans_probs::AbstractArray{T, 2},
              reward::R, initialstates, isterminal) where {T, R}
     if R <: AbstractMatrix
         reward = DeterministicStateActionReward(reward)
@@ -49,22 +49,22 @@ end
 
 """
     struct DeterministicNextStateReward
-        reward::Vector{Float64}
+        value::Vector{Float64}
 """
 struct DeterministicNextStateReward
-    reward::Vector{Float64}
+    value::Vector{Float64}
 end
-reward(r::DeterministicNextStateReward, s, a, s′) = r.reward[s′]
+reward(r::DeterministicNextStateReward, s, a, s′) = r.value[s′]
 """
     struct DeterministicStateActionReward
-        reward::Array{Float64, 2}
+        value::Array{Float64, 2}
 
-`reward` should be a `na × ns`-matrix.
+`value` should be a `na × ns`-matrix.
 """
 struct DeterministicStateActionReward
-    reward::Array{Float64, 2}
+    value::Array{Float64, 2}
 end
-reward(r::DeterministicStateActionReward, s, a, s′) = r.reward[a, s]
+reward(r::DeterministicStateActionReward, s, a, s′) = r.value[a, s]
 """
     struct NormalNextStateReward
         mean::Vector{Float64}
