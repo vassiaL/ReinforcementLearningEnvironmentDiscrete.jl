@@ -1,10 +1,10 @@
 """
-    mutable struct MDP
-        ns::Int64
-        na::Int64
+    mutable struct MDP{T,R}
+        observationspace::DiscreteSpace
+        actionspace::DiscreteSpace
         state::Int64
-        trans_probs::Array{AbstractArray, 2}
-        reward::Array{Float64, 2}
+        trans_probs::Array{T, 2}
+        reward::R
         initialstates::Array{Int64, 1}
         isterminal::Array{Int64, 1}
 
@@ -16,23 +16,27 @@ every (action, state) pair of a (potentially sparse) array that sums to 1 (see
 probabilities) `na`x`ns` - array of `reward`, array of initial states
 `initialstates`, and `ns` - array of 0/1 indicating if a state is terminal.
 """
-mutable struct MDP{T}
+mutable struct MDP{T,R}
     observationspace::DiscreteSpace
     actionspace::DiscreteSpace
     state::Int64
     trans_probs::Array{T, 2}
-    reward::Array{Float64, 2}
+    reward::R
     initialstates::Array{Int64, 1}
     isterminal::Array{Int64, 1}
 end
 function MDP(ospace, aspace, state, trans_probs::Array{T, 2},
-             reward, initialstates, isterminal) where T
-    MDP{T}(ospace, aspace, state, trans_probs, reward, initialstates, isterminal)
+             reward::R, initialstates, isterminal) where {T, R}
+    if R <: AbstractMatrix
+        reward = DeterministicStateActionReward(reward)
+    end
+    MDP{T,typeof(reward)}(ospace, aspace, state, trans_probs, reward, initialstates, isterminal)
 end
 
 function interact!(env::MDP, action)
-    r = env.reward[action, env.state]
+    oldstate = env.state
     run!(env, action)
+    r = reward(env.reward, oldstate, action, env.state)
     (observation = env.state, reward = r, isdone = env.isterminal[env.state] == 1)
 end
 function getstate(env::MDP)
@@ -42,6 +46,47 @@ function reset!(env::MDP)
     env.state = rand(env.initialstates)
     (observation = env.state, )
 end
+
+"""
+    struct DeterministicNextStateReward
+        reward::Vector{Float64}
+"""
+struct DeterministicNextStateReward
+    reward::Vector{Float64}
+end
+reward(r::DeterministicNextStateReward, s, a, s′) = r.reward[s′]
+"""
+    struct DeterministicStateActionReward
+        reward::Array{Float64, 2}
+
+`reward` should be a `na × ns`-matrix.
+"""
+struct DeterministicStateActionReward
+    reward::Array{Float64, 2}
+end
+reward(r::DeterministicStateActionReward, s, a, s′) = r.reward[a, s]
+"""
+    struct NormalNextStateReward
+        mean::Vector{Float64}
+        std::Vector{Float64}
+"""
+struct NormalNextStateReward
+    mean::Vector{Float64}
+    std::Vector{Float64}
+end
+reward(r::NormalNextStateReward, s, a, s′) = r.mean[s′] + randn() * r.std[s′]
+"""
+    struct NormalStateActionReward
+        mean::Array{Float64, 2}
+        std::Array{Float64, 2}
+
+`mean` and `std` should be `na × ns`-matrices.
+"""
+struct NormalStateActionReward
+    mean::Array{Float64, 2}
+    std::Array{Float64, 2}
+end
+reward(r::NormalStateActionReward, s, a, s′) = r.mean[a, s] + randn() * r.std[a, s]
 
 """
     getprobvecrandom(n)

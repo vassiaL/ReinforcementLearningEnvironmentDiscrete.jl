@@ -11,6 +11,8 @@ include("maze.jl")
 include("pomdps.jl") 
 
 export MDP, POMDPEnv, MDPEnv, DiscreteMaze, treeMDP, DetMDP, DetTreeMDP,
-DetTreeMDPwithinrew, StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalking
+DetTreeMDPwithinrew, StochMDP, StochTreeMDP, AbsorbingDetMDP, CliffWalking,
+DeterministicNextStateReward, DeterministicStateActionReward, NormalNextStateReward,
+NormalStateActionReward
 
 end # module
