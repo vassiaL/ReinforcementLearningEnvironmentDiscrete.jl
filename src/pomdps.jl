@@ -37,7 +37,7 @@ end
 
 function interact!(env::MDPEnv, action)
     s = rand(ENV_RNG, transition(env.model, env.state, env.actions[action]))
-    r = reward(env.model, env.state, env.actions[action])
+    r = POMDPs.reward(env.model, env.state, env.actions[action])
     env.state = s
     (observation = stateindex(env.model, s),
      reward = r,
@@ -47,4 +47,3 @@ function getstate(env::MDPEnv)
     (observation = stateindex(env.model, env.state),
      isdone = isterminal(env.model, env.state))
 end
-
