@@ -116,13 +116,13 @@ function breaksomewalls!(m; f = 1/50, n = nothing, rng = ENV_RNG)
     for i in 1:length(m)
         m[i] == 0 && isinsideframe(m, i) && push!(zeros, i)
     end
-    pos = sample(ENV_RNG, zeros, n_effective(n, f, zeros), replace = false)
+    pos = sample(rng, zeros, n_effective(n, f, zeros), replace = false)
     m[pos] .= 1
     m
 end
 function addobstacles!(m; f = 1/100, n = nothing, rng = ENV_RNG)
     nz = findall(x -> x == 1, reshape(m, :))
-    pos = sample(ENV_RNG, nz, n_effective(n, f, nz), replace = false)
+    pos = sample(rng, nz, n_effective(n, f, nz), replace = false)
     m[pos] .= 0
     m
 end
