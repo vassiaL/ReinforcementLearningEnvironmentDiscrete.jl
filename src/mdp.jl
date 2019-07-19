@@ -57,10 +57,11 @@ mutable struct ChangeMDP{TMDP}
     seed::Any
     rng::MersenneTwister # Used only for switches!
 end
-function ChangeMDP(; ns = 10, na = 4, changeprobability = .01, stochasticity = 0.1,
+function ChangeMDP(; ns = 10, na = 4, nrewards = 2,
+                    changeprobability = .01, stochasticity = 0.1,
                     seed = 3)
     rng = MersenneTwister(seed)
-    mdpbase = MDP(ns, na, init = "random")
+    mdpbase = MDP(ns, na, nrewards, init = "random")
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
     mdpbase.trans_probs = deepcopy(T)
     ChangeMDP(ns, DiscreteSpace(na, 1), changeprobability, stochasticity,
@@ -181,7 +182,23 @@ function MDP(ns, na; init = "random")
         1:ns, zeros(ns))
 end
 MDP(; ns = 10, na = 4, init = "random") = MDP(ns, na, init = init)
-
+function MDP(ns, na, r::Vector{Float64}; init = "random")
+    func = eval(Meta.parse("getprobvec" * init))
+    T = [func(ns) for a in 1:na, s in 1:ns]
+    reward = DeterministicNextStateReward(r)
+    MDP(DiscreteSpace(ns, 1), DiscreteSpace(na, 1), rand(ENV_RNG, 1:ns), T, reward,
+        1:ns, zeros(ns))
+end
+function MDP(ns, na, nrewards::Int; init = "random")
+    r = zeros(ns)
+    [r[i] = 1. for i in rand(ENV_RNG, 1:ns, nrewards)]
+    reward = DeterministicNextStateReward(r)
+    isterminal = Int.(r)
+    func = eval(Meta.parse("getprobvec" * init))
+    T = [func(ns) for a in 1:na, s in 1:ns]
+    MDP(DiscreteSpace(ns, 1), DiscreteSpace(na, 1), rand(ENV_RNG, 1:ns), T, reward,
+        1:ns, isterminal)
+end
 actionspace(env::MDP) = env.actionspace
 
 """
