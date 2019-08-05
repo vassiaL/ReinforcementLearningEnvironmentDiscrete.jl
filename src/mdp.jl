@@ -81,15 +81,12 @@ function interact!(env::ChangeMDP, action)
         s = rand(env.rng, 1:env.ns)
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
         env.mdp.trans_probs[a, s] = deepcopy(T)
-
         # #Change currect s-a pair: (Option #1)
         # env.mdp.trans_probs[action, env.mdp.state] = deepcopy(T)
-
         # # Change the whole MDP: (Option #3)
         # T = [rand(env.rng, Dirichlet(env.ns, env.stochasticity))
         #         for a in 1:env.mdp.actionspace.n, s in 1:env.ns]
         # env.mdp.trans_probs = deepcopy(T)
-
         env.switchflag = true
     end
     interact!(env.mdp, action)
