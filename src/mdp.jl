@@ -191,10 +191,12 @@ function MDP(ns, na, nrewards::Int; init = "random")
     [r[i] = 1. for i in rand(ENV_RNG, 1:ns, nrewards)]
     reward = DeterministicNextStateReward(r)
     isterminal = Int.(r)
+    initialstates = 1:ns
+    initialstates = @. initialstates[isterminal == 0] # Exclude terminalstates
     func = eval(Meta.parse("getprobvec" * init))
     T = [func(ns) for a in 1:na, s in 1:ns]
     MDP(DiscreteSpace(ns, 1), DiscreteSpace(na, 1), rand(ENV_RNG, 1:ns), T, reward,
-        1:ns, isterminal)
+        initialstates, isterminal)
 end
 actionspace(env::MDP) = env.actionspace
 
