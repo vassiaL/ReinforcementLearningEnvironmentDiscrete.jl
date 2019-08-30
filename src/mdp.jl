@@ -35,7 +35,10 @@ function MDP(ospace, aspace, state, trans_probs::AbstractArray{T, 2},
 end
 function interact!(env::MDP, action)
     oldstate = env.state
+    @show oldstate
     run!(env, action)
+    @show env.state
+    @show env.isterminal[env.state]
     r = reward(env.reward, oldstate, action, env.state)
     (observation = env.state, reward = r, isdone = env.isterminal[env.state] == 1)
 end
@@ -53,7 +56,7 @@ mutable struct ChangeMDP{TMDP}
     changeprobability::Float64
     stochasticity::Float64
     mdp::TMDP
-    switchflag::Bool
+    switchflag::Array{Bool, 2}
     seed::Any
     rng::MersenneTwister # Used only for switches!
 end
@@ -64,33 +67,52 @@ function ChangeMDP(; ns = 10, na = 4, nrewards = 2,
     mdpbase = MDP(ns, na, nrewards, init = "random")
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
     mdpbase.trans_probs = deepcopy(T)
+    switchflag = Array{Bool, 3}(undef, na, ns)
+    switchflag .= false
     ChangeMDP(ns, DiscreteSpace(na, 1), changeprobability, stochasticity,
-                mdpbase, false, seed, rng)
+                mdpbase, switchflag, seed, rng)
 end
 export ChangeMDP
 getstate(env::ChangeMDP) = getstate(env.mdp)
 reset!(env::ChangeMDP) = reset!(env.mdp)
 function interact!(env::ChangeMDP, action)
-    env.switchflag = false
-    r = rand(env.rng)
+    env.switchflag .= false
+    r = rand!(rng, zeros(env.ns * env.mdp.actionspace.n))
+    indicestoswitch = findall(r .< env.changeprobability)
     # @show r
-    if r < env.changeprobability # Switch or not!
-        #println("Switch!")
-        # Pick an s-a pair and change it: (Option #2)
-        a = rand(env.rng, 1:env.mdp.actionspace.n)
-        s = rand(env.rng, 1:env.ns)
+    for i in indicestoswitch
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
-        env.mdp.trans_probs[a, s] = deepcopy(T)
-        # #Change currect s-a pair: (Option #1)
-        # env.mdp.trans_probs[action, env.mdp.state] = deepcopy(T)
-        # # Change the whole MDP: (Option #3)
-        # T = [rand(env.rng, Dirichlet(env.ns, env.stochasticity))
-        #         for a in 1:env.mdp.actionspace.n, s in 1:env.ns]
-        # env.mdp.trans_probs = deepcopy(T)
-        env.switchflag = true
+        env.mdp.trans_probs[i] = deepcopy(T)
+        env.switchflag[i] = true
     end
     interact!(env.mdp, action)
 end
+# function interact!(env::ChangeMDP, action)
+#     env.switchflag = false
+#     r = rand(env.rng)
+#     # @show r
+#     if r < env.changeprobability # Switch or not!
+#         # # -----------------------------------------------------------
+#         # # # # Pick randomly an s-a pair and change it: (Problem: generative model is not the one we assume. Complicated)
+#         # # -----------------------------------------------------------
+#         a = rand(env.rng, 1:env.mdp.actionspace.n)
+#         s = rand(env.rng, 1:env.ns)
+#         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
+#         env.mdp.trans_probs[a, s] = deepcopy(T)
+#         # # -----------------------------------------------------------
+#         # # # # Change currect s-a pair: (This way env changes depend on agent's policy  -- We don't want this)
+#         # # -----------------------------------------------------------
+#         # env.mdp.trans_probs[action, env.mdp.state] = deepcopy(T)
+#         # # -----------------------------------------------------------
+#         # # # # Change the whole MDP: (Global changes -- We don't want this)
+#         # # -----------------------------------------------------------
+#         # T = [rand(env.rng, Dirichlet(env.ns, env.stochasticity))
+#         #         for a in 1:env.mdp.actionspace.n, s in 1:env.ns]
+#         # env.mdp.trans_probs = deepcopy(T)
+#         env.switchflag = true
+#     end
+#     interact!(env.mdp, action)
+# end
 actionspace(env::ChangeMDP) = actionspace(env.mdp)
 """
     struct DeterministicNextStateReward
