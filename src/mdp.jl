@@ -67,7 +67,7 @@ function ChangeMDP(; ns = 10, na = 4, nrewards = 2,
     mdpbase = MDP(ns, na, nrewards, init = "random")
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
     mdpbase.trans_probs = deepcopy(T)
-    switchflag = Array{Bool, 3}(undef, na, ns)
+    switchflag = Array{Bool, 2}(undef, na, ns)
     switchflag .= false
     ChangeMDP(ns, DiscreteSpace(na, 1), changeprobability, stochasticity,
                 mdpbase, switchflag, seed, rng)
@@ -76,13 +76,20 @@ export ChangeMDP
 getstate(env::ChangeMDP) = getstate(env.mdp)
 reset!(env::ChangeMDP) = reset!(env.mdp)
 function interact!(env::ChangeMDP, action)
+    # # -----------------------------------------------------------
+    # # # # For all s-a pairs, change them with prob pc: (option c.)
+    # # -----------------------------------------------------------
     env.switchflag .= false
-    r = rand!(rng, zeros(env.ns * env.mdp.actionspace.n))
+    r = rand!(env.rng, zeros(env.ns * env.mdp.actionspace.n))
     indicestoswitch = findall(r .< env.changeprobability)
     # @show r
     for i in indicestoswitch
+        @show i
+        @show CartesianIndices(env.mdp.trans_probs)[i]
+        @show env.mdp.trans_probs[i]
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
         env.mdp.trans_probs[i] = deepcopy(T)
+        @show env.mdp.trans_probs[i]
         env.switchflag[i] = true
     end
     interact!(env.mdp, action)
