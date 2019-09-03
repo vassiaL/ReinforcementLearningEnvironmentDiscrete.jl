@@ -120,12 +120,14 @@ function breaksomewalls!(m; f = 1/50, n = nothing, rng = ENV_RNG)
     m[pos] .= 1
     m
 end
+export breaksomewalls!
 function addobstacles!(m; f = 1/100, n = nothing, rng = ENV_RNG)
     nz = findall(x -> x == 1, reshape(m, :))
     pos = sample(rng, nz, n_effective(n, f, nz), replace = false)
     m[pos] .= 0
     m
 end
+export addobstacles!
 """
     struct DiscreteMaze
         mdp::MDP
@@ -256,38 +258,44 @@ plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
 
 mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
-    n::Int
+    nbreak::Int
+    nadd::Int
     changeprobability::Float64
-    switchflag::Bool # Used for RecordSwitches callback
+    switchflag::Array{Bool, 2} # Used for RecordSwitches callback.
     seed::Any
     rng::MersenneTwister # Used only for switches!
 end
 function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
                    compressed = false, stochastic = false,
-                   neighbourstateweight = stochastic ? .05 : 0., n = 5,
-                   changeprobability = 0.01, seed = 3)
+                   neighbourstateweight = stochastic ? .05 : 0., nbreak = 2,
+                   nadd = 4, changeprobability = 0.01, seed = 3)
 
     rng = MersenneTwister(seed)
     dm = DiscreteMaze(nx = nx, ny = ny, ngoals = ngoals, nwalls = nwalls,
                        compressed = compressed, stochastic = stochastic,
                        neighbourstateweight = neighbourstateweight)
-    RandomChangeDiscreteMaze(dm, n, changeprobability, false, seed, rng)
+    switchflag = Array{Bool, 2}(undef, nx, ny)
+    switchflag .= false
+    RandomChangeDiscreteMaze(dm, nbreak, nadd, changeprobability, switchflag,
+                            seed, rng)
 end
 function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.01,
                                     seed = 3)
     rng = MersenneTwister(seed)
     dm = DiscreteMaze(maze, compressed = false)
-    RandomChangeDiscreteMaze(dm, n, changeprobability, false, seed, rng)
+    switchflag = Array{Bool, 2}(undef, size(env.discretemaze.maze, 1), size(env.discretemaze.maze, 2))
+    switchflag .= false
+    RandomChangeDiscreteMaze(dm, nbreak, nadd, changeprobability, switchflag, seed, rng)
 end
-
 function interact!(env::RandomChangeDiscreteMaze, action)
-    env.switchflag = false
+    env.switchflag .= false
     r = rand(env.rng)
     if r < env.changeprobability # Switch or not!
-        env.switchflag = true
-        breaksomewalls!(env.discretemaze.maze, n = env.n, rng = env.rng)
-        addobstacles!(env.discretemaze.maze, n = env.n, rng = env.rng)
+        lastmaze = deepcopy(env.discretemaze.maze)
+        breaksomewalls!(env.discretemaze.maze, n = env.nbreak, rng = env.rng)
+        addobstacles!(env.discretemaze.maze, n = env.nadd, rng = env.rng)
         setTandR!(env.discretemaze)
+        env.switchflag = env.discretemaze.maze .!= lastmaze
     end
     interact!(env.discretemaze.mdp, action)
 end

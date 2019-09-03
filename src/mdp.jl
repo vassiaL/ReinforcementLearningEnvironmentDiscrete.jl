@@ -35,10 +35,10 @@ function MDP(ospace, aspace, state, trans_probs::AbstractArray{T, 2},
 end
 function interact!(env::MDP, action)
     oldstate = env.state
-    @show oldstate
+    # @show oldstate
     run!(env, action)
-    @show env.state
-    @show env.isterminal[env.state]
+    # @show env.state
+    # @show env.isterminal[env.state]
     r = reward(env.reward, oldstate, action, env.state)
     (observation = env.state, reward = r, isdone = env.isterminal[env.state] == 1)
 end
@@ -84,12 +84,12 @@ function interact!(env::ChangeMDP, action)
     indicestoswitch = findall(r .< env.changeprobability)
     # @show r
     for i in indicestoswitch
-        @show i
-        @show CartesianIndices(env.mdp.trans_probs)[i]
-        @show env.mdp.trans_probs[i]
+        # @show i
+        # @show CartesianIndices(env.mdp.trans_probs)[i]
+        # @show env.mdp.trans_probs[i]
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
         env.mdp.trans_probs[i] = deepcopy(T)
-        @show env.mdp.trans_probs[i]
+        # @show env.mdp.trans_probs[i]
         env.switchflag[i] = true
     end
     interact!(env.mdp, action)
