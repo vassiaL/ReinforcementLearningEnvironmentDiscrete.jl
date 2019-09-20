@@ -85,6 +85,9 @@ function interact!(env::ChangeMDP, action)
     # @show r
     for i in indicestoswitch
         # @show i
+        # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        # println("%%%%%%%%%%%%%% CHANGE!!! %%%%%%%%%%%%%%%%%%%%%%")
+        # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
         # @show CartesianIndices(env.mdp.trans_probs)[i]
         # @show env.mdp.trans_probs[i]
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
