@@ -70,16 +70,25 @@ function setTandR!(d)
     end
 end
 function setTandR!(d, s)
+    # @show s
     T = d.mdp.trans_probs
     R = d.mdp.reward
     statefrommaze = d.statefrommaze
     goals = d.goals
+    # @show goals
     ns = d.mdp.observationspace.n
     maze = d.maze
     idx_goals = findfirst(x -> x == s, goals)
+    # @show idx_goals
+    # @show d.goalrewards
+    #### TODO #####
+    # Here R should be reset to 0s everwhere!!!!
+    # Otherwise what you had before stay same!!!!!
     if idx_goals !== nothing
+        # @show d.goalrewards[idx_goals]
         R.value[s] = d.goalrewards[idx_goals]
     end
+    # @show unique(R.value)
     pos = indto2d(maze, d.mazefromstate[s])
     # @show pos
     if (!(in(:chosenactionweight, fieldnames(typeof(d))))
@@ -103,7 +112,6 @@ function setTandR!(d, s)
                 # @show weights
                 states = map(p -> statefrommaze[posto1d(maze, p)], positions)
                 weights /= sum(weights)
-
                 # @show weights
                 T[aind, s] = sparsevec(states, weights, ns)
             else
@@ -252,9 +260,11 @@ function ChangeDiscreteMaze(; switchsteps = [10^2], stochastic = false,
 end
 function ChangeDiscreteMaze(maze; switchsteps = [10^2], stochastic = false,
                             neighbourstateweight = stochastic ? .05 : 0.,
-                            nswitches = 1, ngoals = 1, chosenactionweight = 2. /3.)
+                            nswitches = 1, ngoals = 1,
+                            chosenactionweight = 2. /3.)
 
-    dm = DiscreteMaze(maze, ngoals = ngoals, compressed = switchflag,
+    dm = DiscreteMaze(maze, ngoals = ngoals,
+                        compressed = switchflag,
                         stochastic = stochastic,
                         neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
@@ -267,9 +277,11 @@ function ChangeDiscreteMaze(maze, switchpos;
                             switchsteps = 10^2*ones(Int, length(switchpos)),
                             stochastic = false,
                             neighbourstateweight = stochastic ? .05 : 0.,
-                            ngoals = 1, chosenactionweight = 2. /3.)
+                            ngoals = 1,
+                            chosenactionweight = 2. /3.)
 
-    dm = DiscreteMaze(maze, ngoals = ngoals, compressed = false,
+    dm = DiscreteMaze(maze, ngoals = ngoals,
+                        compressed = false,
                         stochastic = stochastic,
                         neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
@@ -281,6 +293,7 @@ end
 function interact!(env::ChangeDiscreteMaze, action)
     env.stepcounter += 1
     env.switchflag .= false
+    #@show env.stepcounter
     if any(env.stepcounter .== env.switchsteps) # Switch or not!
         nswitches = findall(env.stepcounter .== env.switchsteps)
         previousT = deepcopy(env.discretemaze.mdp.trans_probs)
@@ -329,27 +342,30 @@ mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     rng::MersenneTwister # Used only for switches!
     chosenactionweight::Float64
 end
-function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4, nwalls = 10,
-                   compressed = false, stochastic = false,
-                   neighbourstateweight = stochastic ? .05 : 0.,
-                   chosenactionweight = 2. /3., nbreak = 2,
-                   nadd = 4, changeprobability = 0.01, seed = 3)
+function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4,
+                    nwalls = 10, compressed = false,
+                    stochastic = false,
+                    neighbourstateweight = stochastic ? .05 : 0.,
+                    chosenactionweight = 2. /3., nbreak = 2,
+                    nadd = 4, changeprobability = 0.01, seed = 3)
 
     rng = MersenneTwister(seed)
     dm = DiscreteMaze(nx = nx, ny = ny, ngoals = ngoals, nwalls = nwalls,
-                       compressed = compressed, stochastic = stochastic,
-                       neighbourstateweight = neighbourstateweight,
-                       chosenactionweight = chosenactionweight)
+                        compressed = compressed, stochastic = stochastic,
+                        neighbourstateweight = neighbourstateweight,
+                        chosenactionweight = chosenactionweight)
     switchflag = Array{Bool, 2}(undef, 4, nx*ny)
     switchflag .= false
     RandomChangeDiscreteMaze(dm, nbreak, nadd, changeprobability, switchflag,
                             seed, rng, chosenactionweight)
 end
-function RandomChangeDiscreteMaze(maze; n = 5, changeprobability = 0.01,
+function RandomChangeDiscreteMaze(maze; ngoals = 1, nbreak = 2, nadd = 4,
+                                changeprobability = 0.01,
                                 chosenactionweight = 2. /3.,
                                 seed = 3)
     rng = MersenneTwister(seed)
-    dm = DiscreteMaze(maze, compressed = false, chosenactionweight = chosenactionweight)
+    dm = DiscreteMaze(maze, ngoals = ngoals, compressed = false,
+                        chosenactionweight = chosenactionweight)
     switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
     switchflag .= false
     RandomChangeDiscreteMaze(dm, nbreak, nadd, changeprobability, switchflag,
