@@ -124,6 +124,61 @@ end
 #     interact!(env.mdp, action)
 # end
 actionspace(env::ChangeMDP) = actionspace(env.mdp)
+
+
+mutable struct JumpMDP{TMDP}
+    ns::Int64
+    actionspace::DiscreteSpace
+    jumpprobability::Float64
+    stochasticity::Float64
+    mdp::TMDP
+    jumpflag::Array{Bool, 2}
+    seed::Any
+    rng::MersenneTwister # Used only for switches!
+end
+function JumpMDP(; ns = 10, na = 4, nrewards = 2,
+                    jumpprobability = .01, stochasticity = 0.1,
+                    seed = 3)
+    rng = MersenneTwister(seed)
+    mdpbase = MDP(ns, na, nrewards, init = "random")
+    T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
+    mdpbase.trans_probs = deepcopy(T)
+    jumpflag = Array{Bool, 2}(undef, na, ns)
+    jumpflag .= false
+    JumpMDP(ns, DiscreteSpace(na, 1), jumpprobability, stochasticity,
+                mdpbase, jumpflag, seed, rng)
+end
+export JumpMDP
+getstate(env::JumpMDP) = getstate(env.mdp)
+reset!(env::JumpMDP) = reset!(env.mdp)
+function interact!(env::JumpMDP, action)
+    env.jumpflag .= false
+    r = rand(env.rng)
+    if r < env.jumpprobability
+        interactjump!(env.mdp, action)
+        env.jumpflag[i] = true
+    else
+        interact!(env.mdp, action)
+    end
+end
+function interactjump!(env::MDP, action)
+    oldstate = env.state
+
+    possiblenextstates = deleteat!(collect(1:env.ns), collect(1:env.ns) .== oldstate)
+    @show possiblenextstates
+    env.state = rand(env.rng, possiblenextstates)
+    #mdp.state = wsample(ENV_RNG, mdp.trans_probs[action, mdp.state])
+    (observation = env.state,)
+    # @show env.state
+    # @show env.isterminal[env.state]
+    r = reward(env.reward, oldstate, action, env.state)
+    (observation = env.state, reward = r, isdone = env.isterminal[env.state] == 1)
+end
+function getstate(env::MDP)
+    (observation = env.state, isdone = env.isterminal[env.state] == 1)
+end
+actionspace(env::JumpMDP) = actionspace(env.mdp)
+
 """
     struct DeterministicNextStateReward
         value::Vector{Float64}
