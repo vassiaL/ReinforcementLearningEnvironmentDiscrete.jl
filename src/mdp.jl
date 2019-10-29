@@ -125,7 +125,6 @@ end
 # end
 actionspace(env::ChangeMDP) = actionspace(env.mdp)
 
-
 mutable struct JumpMDP{TMDP}
     ns::Int64
     actionspace::DiscreteSpace
@@ -163,19 +162,14 @@ function interact!(env::JumpMDP, action)
 end
 function interactjump!(env::MDP, action)
     oldstate = env.state
-
+    @show oldstate
     possiblenextstates = deleteat!(collect(1:env.ns), collect(1:env.ns) .== oldstate)
     @show possiblenextstates
     env.state = rand(env.rng, possiblenextstates)
-    #mdp.state = wsample(ENV_RNG, mdp.trans_probs[action, mdp.state])
-    (observation = env.state,)
-    # @show env.state
+    @show env.state
     # @show env.isterminal[env.state]
     r = reward(env.reward, oldstate, action, env.state)
     (observation = env.state, reward = r, isdone = env.isterminal[env.state] == 1)
-end
-function getstate(env::MDP)
-    (observation = env.state, isdone = env.isterminal[env.state] == 1)
 end
 actionspace(env::JumpMDP) = actionspace(env.mdp)
 
