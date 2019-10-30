@@ -134,6 +134,7 @@ mutable struct JumpMDP{TMDP}
     switchflag::Array{Bool, 2} # It's rather a "jumpflag"
     seed::Any
     rng::MersenneTwister # Used only for switches!
+    nonterminalstates::Array{Int, 1}
 end
 function JumpMDP(; ns = 10, na = 4, nrewards = 2,
                     jumpprobability = .01, stochasticity = 0.1,
@@ -144,8 +145,10 @@ function JumpMDP(; ns = 10, na = 4, nrewards = 2,
     mdpbase.trans_probs = deepcopy(T)
     switchflag = Array{Bool, 2}(undef, na, ns)
     switchflag .= false
+    nonterminalstates = findall(mdpbase.isterminal .== 0)
+    @show nonterminalstates
     JumpMDP(ns, DiscreteSpace(na, 1), jumpprobability, stochasticity,
-                mdpbase, switchflag, seed, rng)
+                mdpbase, switchflag, seed, rng, nonterminalstates)
 end
 export JumpMDP
 getstate(env::JumpMDP) = getstate(env.mdp)
@@ -167,7 +170,12 @@ end
 function interactjump!(env::JumpMDP, action)
     oldstate = env.mdp.state
     @show oldstate
-    possiblenextstates = deleteat!(collect(1:env.ns), collect(1:env.ns) .== oldstate)
+
+    # possiblenextstates = deleteat!(collect(1:env.ns), collect(1:env.ns) .== oldstate)
+    @show env.nonterminalstates
+    possiblenextstates = copy(env.nonterminalstates)
+    possiblenextstates = deleteat!(possiblenextstates, possiblenextstates .== oldstate)
+
     @show possiblenextstates
     env.mdp.state = rand(env.rng, possiblenextstates)
     @show env.mdp.state
