@@ -131,7 +131,7 @@ mutable struct JumpMDP{TMDP}
     jumpprobability::Float64
     stochasticity::Float64
     mdp::TMDP
-    jumpflag::Array{Bool, 2}
+    switchflag::Array{Bool, 2} # It's rather a "jumpflag"
     seed::Any
     rng::MersenneTwister # Used only for switches!
 end
@@ -142,34 +142,39 @@ function JumpMDP(; ns = 10, na = 4, nrewards = 2,
     mdpbase = MDP(ns, na, nrewards, init = "random")
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
     mdpbase.trans_probs = deepcopy(T)
-    jumpflag = Array{Bool, 2}(undef, na, ns)
-    jumpflag .= false
+    switchflag = Array{Bool, 2}(undef, na, ns)
+    switchflag .= false
     JumpMDP(ns, DiscreteSpace(na, 1), jumpprobability, stochasticity,
-                mdpbase, jumpflag, seed, rng)
+                mdpbase, switchflag, seed, rng)
 end
 export JumpMDP
 getstate(env::JumpMDP) = getstate(env.mdp)
 reset!(env::JumpMDP) = reset!(env.mdp)
 function interact!(env::JumpMDP, action)
-    env.jumpflag .= false
+    @show env.mdp.state
+    @show action
+    @show env.mdp.trans_probs[action, env.mdp.state]
+    env.switchflag .= false
     r = rand(env.rng)
     if r < env.jumpprobability
-        interactjump!(env.mdp, action)
-        env.jumpflag[i] = true
+        println("------ JUMP!")
+        env.switchflag[action, env.mdp.state] = true
+        interactjump!(env, action)
     else
         interact!(env.mdp, action)
     end
 end
-function interactjump!(env::MDP, action)
-    oldstate = env.state
+function interactjump!(env::JumpMDP, action)
+    oldstate = env.mdp.state
     @show oldstate
     possiblenextstates = deleteat!(collect(1:env.ns), collect(1:env.ns) .== oldstate)
     @show possiblenextstates
-    env.state = rand(env.rng, possiblenextstates)
-    @show env.state
+    env.mdp.state = rand(env.rng, possiblenextstates)
+    @show env.mdp.state
     # @show env.isterminal[env.state]
-    r = reward(env.reward, oldstate, action, env.state)
-    (observation = env.state, reward = r, isdone = env.isterminal[env.state] == 1)
+    r = reward(env.mdp.reward, oldstate, action, env.mdp.state)
+    @show r
+    (observation = env.mdp.state, reward = r, isdone = env.mdp.isterminal[env.mdp.state] == 1)
 end
 actionspace(env::JumpMDP) = actionspace(env.mdp)
 
