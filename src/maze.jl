@@ -294,7 +294,9 @@ function interact!(env::ChangeDiscreteMaze, action)
     env.stepcounter += 1
     env.switchflag .= false
     #@show env.stepcounter
-    if any(env.stepcounter .== env.switchsteps) # Switch or not!
+    if any(env.stepcounter .== env.switchsteps)
+        # && (env.discretemaze.mdp.isterminal[env.discretemaze.mdp.state] == 1))# Switch or not!
+        #println("####################################################################################################")
         nswitches = findall(env.stepcounter .== env.switchsteps)
         previousT = deepcopy(env.discretemaze.mdp.trans_probs)
         for i in nswitches
@@ -308,22 +310,50 @@ function setupswitch!(env::ChangeDiscreteMaze, iswitch)
     #for i in 1:length(env.switchpos)
     env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
     #end
+    # !!!!! Reset the whole transition matrix, so that new walls become undefined!!!
+    ns = env.discretemaze.mdp.observationspace.n
+    na = env.discretemaze.mdp.actionspace.n
+    env.discretemaze.mdp.trans_probs[:] = Array{SparseVector{Float64,Int}}(undef, na, ns)
+
     setTandR!(env.discretemaze)
 end
 function updateswitchflag!(env, previousT)
     for i in 1:length(env.switchflag)
-        if !isassigned(previousT, i)
-            if isassigned(env.discretemaze.mdp.trans_probs, i)
+        @show i
+        # if !isassigned(previousT, i)
+        #     if isassigned(env.discretemaze.mdp.trans_probs, i)
+        #         env.switchflag[i] = true
+        #         println("Case 1")
+        #     end
+        # else
+        #     if !isassigned(env.discretemaze.mdp.trans_probs, i)
+        #         env.switchflag[i] = true
+        #         println("Case 2")
+        #     else
+        #         if !all(previousT[i] .== env.discretemaze.mdp.trans_probs[i])
+        #             env.switchflag[i] = true
+        #             println("Case 3")
+        #             @show previousT[i]
+        #             @show env.discretemaze.mdp.trans_probs[i]
+        #         end
+        #     end
+        # end
+        if (!isassigned(previousT, i) &
+            isassigned(env.discretemaze.mdp.trans_probs, i))
                 env.switchflag[i] = true
-            end
-        else
-            if !isassigned(env.discretemaze.mdp.trans_probs, i)
+                println("Case 1")
+        elseif (isassigned(previousT, i) &
+                !isassigned(env.discretemaze.mdp.trans_probs, i))
                 env.switchflag[i] = true
-            else
-                if !all(previousT[i] .== env.discretemaze.mdp.trans_probs[i])
-                    env.switchflag[i] = true
-                end
-            end
+                println("Case 2")
+        elseif (isassigned(previousT, i) &
+                isassigned(env.discretemaze.mdp.trans_probs, i) &
+                !all(previousT[i] .== env.discretemaze.mdp.trans_probs[i])
+                )
+                env.switchflag[i] = true
+                println("Case 3")
+                @show previousT[i]
+                @show env.discretemaze.mdp.trans_probs[i]
         end
     end
 end
@@ -391,12 +421,17 @@ reset!(env::RandomChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
 getstate(env::RandomChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
 actionspace(env::RandomChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
 plotenv(env::RandomChangeDiscreteMaze) = plotenv(env.discretemaze)
-
+using Plots
 function plotenv(env::DiscreteMaze)
     goals = env.goals
     mazefromstate = env.mazefromstate
     m = deepcopy(env.maze)
     m[mazefromstate[goals]] .= 3
+    # for i in 1:length(goals)
+    #     if env.goalrewards[i] > 1.
+    #         m[mazefromstate[goals[i]]] = 4
+    #     end
+    # end
     m[mazefromstate[env.mdp.state]] = 2
     imshow(m, colormap = 21, size = (400, 400))
 end

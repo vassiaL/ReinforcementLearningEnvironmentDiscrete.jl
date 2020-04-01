@@ -97,6 +97,7 @@ function interact!(env::ChangeMDP, action)
     end
     interact!(env.mdp, action)
 end
+# OLD versions:
 # function interact!(env::ChangeMDP, action)
 #     env.switchflag = false
 #     r = rand(env.rng)
@@ -124,7 +125,8 @@ end
 #     interact!(env.mdp, action)
 # end
 actionspace(env::ChangeMDP) = actionspace(env.mdp)
-
+# ------------------------------------------------------------------------------
+""" Jump MDP: similar to task used in fMRI project """
 mutable struct JumpMDP{TMDP}
     ns::Int64
     actionspace::DiscreteSpace
@@ -185,7 +187,7 @@ function interactjump!(env::JumpMDP, action)
     (observation = env.mdp.state, reward = r, isdone = env.mdp.isterminal[env.mdp.state] == 1)
 end
 actionspace(env::JumpMDP) = actionspace(env.mdp)
-
+# ------------------------------------------------------------------------------
 """
     struct DeterministicNextStateReward
         value::Vector{Float64}
@@ -226,7 +228,6 @@ struct NormalStateActionReward
     std::Array{Float64, 2}
 end
 reward(r::NormalStateActionReward, s, a, s′) = r.mean[a, s] + randn(ENV_RNG) * r.std[a, s]
-
 """
     getprobvecrandom(n)
 
