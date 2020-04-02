@@ -310,7 +310,8 @@ function setupswitch!(env::ChangeDiscreteMaze, iswitch)
     #for i in 1:length(env.switchpos)
     env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
     #end
-    # !!!!! Reset the whole transition matrix, so that new walls become undefined!!!
+    # # !!!!! Reset the whole transition matrix, so that new walls become "undef"!!!
+    # NOTE: Not important for normal RL learners. But important for MDPlearner!
     ns = env.discretemaze.mdp.observationspace.n
     na = env.discretemaze.mdp.actionspace.n
     env.discretemaze.mdp.trans_probs[:] = Array{SparseVector{Float64,Int}}(undef, na, ns)
@@ -319,41 +320,28 @@ function setupswitch!(env::ChangeDiscreteMaze, iswitch)
 end
 function updateswitchflag!(env, previousT)
     for i in 1:length(env.switchflag)
-        @show i
-        # if !isassigned(previousT, i)
-        #     if isassigned(env.discretemaze.mdp.trans_probs, i)
-        #         env.switchflag[i] = true
-        #         println("Case 1")
-        #     end
-        # else
-        #     if !isassigned(env.discretemaze.mdp.trans_probs, i)
-        #         env.switchflag[i] = true
-        #         println("Case 2")
-        #     else
-        #         if !all(previousT[i] .== env.discretemaze.mdp.trans_probs[i])
-        #             env.switchflag[i] = true
-        #             println("Case 3")
-        #             @show previousT[i]
-        #             @show env.discretemaze.mdp.trans_probs[i]
-        #         end
-        #     end
-        # end
-        if (!isassigned(previousT, i) &
-            isassigned(env.discretemaze.mdp.trans_probs, i))
+        # @show i
+        if !isassigned(previousT, i)
+            if isassigned(env.discretemaze.mdp.trans_probs, i)
                 env.switchflag[i] = true
-                println("Case 1")
-        elseif (isassigned(previousT, i) &
-                !isassigned(env.discretemaze.mdp.trans_probs, i))
+                # @show i
+                # @show env.discretemaze.mdp.trans_probs[i]
+                # println("Case 1")
+            end
+        else
+            if !isassigned(env.discretemaze.mdp.trans_probs, i)
                 env.switchflag[i] = true
-                println("Case 2")
-        elseif (isassigned(previousT, i) &
-                isassigned(env.discretemaze.mdp.trans_probs, i) &
-                !all(previousT[i] .== env.discretemaze.mdp.trans_probs[i])
-                )
-                env.switchflag[i] = true
-                println("Case 3")
-                @show previousT[i]
-                @show env.discretemaze.mdp.trans_probs[i]
+                # println("Case 2")
+                # @show i
+                # @show previousT[i]
+            else
+                if !all(previousT[i] .== env.discretemaze.mdp.trans_probs[i])
+                    env.switchflag[i] = true
+                    # println("Case 3")
+                    # @show previousT[i]
+                    # @show env.discretemaze.mdp.trans_probs[i]
+                end
+            end
         end
     end
 end
