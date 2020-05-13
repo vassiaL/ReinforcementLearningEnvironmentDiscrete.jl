@@ -240,6 +240,9 @@ reset!(env::DiscreteMaze) = reset!(env.mdp)
 getstate(env::DiscreteMaze) = getstate(env.mdp)
 actionspace(env::DiscreteMaze) = actionspace(env.mdp)
 
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 mutable struct ChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
     stepcounter::Int
@@ -256,7 +259,7 @@ function ChangeDiscreteMaze(; switchsteps = [10^2], stochastic = false,
     switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
     switchflag .= false
     switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
-    ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, 1.)
+    ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, chosenactionweight)
 end
 function ChangeDiscreteMaze(maze; switchsteps = [10^2], stochastic = false,
                             neighbourstateweight = stochastic ? .05 : 0.,
@@ -289,7 +292,7 @@ function ChangeDiscreteMaze(maze, switchpos;
     switchflag .= false
     ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, chosenactionweight)
 end
-
+# --- For standard RL learners all we need is:
 function interact!(env::ChangeDiscreteMaze, action)
     env.stepcounter += 1
     env.switchflag .= false
@@ -306,18 +309,56 @@ function interact!(env::ChangeDiscreteMaze, action)
     end
     interact!(env.discretemaze.mdp, action)
 end
+
 function setupswitch!(env::ChangeDiscreteMaze, iswitch)
     #for i in 1:length(env.switchpos)
     env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
     #end
-    # # !!!!! Reset the whole transition matrix, so that new walls become "undef"!!!
-    # NOTE: Not important for normal RL learners. But important for MDPlearner!
-    ns = env.discretemaze.mdp.observationspace.n
-    na = env.discretemaze.mdp.actionspace.n
-    env.discretemaze.mdp.trans_probs[:] = Array{SparseVector{Float64,Int}}(undef, na, ns)
-
     setTandR!(env.discretemaze)
 end
+# # --- For MDP learner we need this:
+# function interact!(env::ChangeDiscreteMaze, action)
+#     env.stepcounter += 1
+#     env.switchflag .= false
+#     #@show env.stepcounter
+#     if any(env.stepcounter .== env.switchsteps)
+#         previousT = deepcopy(env.discretemaze.mdp.trans_probs)
+#         # && (env.discretemaze.mdp.isterminal[env.discretemaze.mdp.state] == 1))# Switch or not!
+#         #println("###########################################################")
+#         nswitches = findall(env.stepcounter .== env.switchsteps)
+#         # @show env.switchsteps
+#         # @show env.switchpos
+#         if any(env.switchpos .== env.discretemaze.mdp.state)
+#             for i in nswitches
+#                 push!(env.switchsteps, env.stepcounter+1)
+#                 push!(env.switchpos, env.switchpos[i])
+#             end
+#             # @show env.switchsteps
+#             # @show env.switchpos
+#             # println("i saw it!")
+#         else
+#             for i in nswitches
+#                 # @show i
+#                 setupswitch!(env, i)
+#             end
+#         end
+#         updateswitchflag!(env, previousT)
+#     end
+#     interact!(env.discretemaze.mdp, action)
+# end
+# function setupswitch!(env::ChangeDiscreteMaze, iswitch)
+#     #for i in 1:length(env.switchpos)
+#     env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
+#     # @show env.discretemaze.maze
+#     #end
+#     # # !!!!! Reset the whole transition matrix, so that new walls become "undef"!!!
+#     # NOTE: Not important for normal RL learners. But important for MDPlearner!
+#     ns = env.discretemaze.mdp.observationspace.n
+#     na = env.discretemaze.mdp.actionspace.n
+#     env.discretemaze.mdp.trans_probs[:] = Array{SparseVector{Float64,Int}}(undef, na, ns)
+#
+#     setTandR!(env.discretemaze)
+# end
 function updateswitchflag!(env, previousT)
     for i in 1:length(env.switchflag)
         # @show i
@@ -349,6 +390,144 @@ reset!(env::ChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
 getstate(env::ChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
 actionspace(env::ChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
 plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+mutable struct ChangeDiscreteMazeProbabilistic{DiscreteMaze}
+    discretemaze::DiscreteMaze
+    changeprobability::Float64
+    switchflag::Array{Bool, 2} # Used for RecordSwitches callback
+    switchpos::Array{Int, 1}
+    chosenactionweight::Float64
+    seed::Any
+    rng::MersenneTwister # Used only for switches!
+end
+function ChangeDiscreteMazeProbabilistic(; changeprobability = .01,
+                            stochastic = false,
+                            neighbourstateweight = stochastic ? .05 : 0.,
+                            nswitches = 1, chosenactionweight = 1.,
+                            seed = 3)
+    rng = MersenneTwister(seed)
+    dm = DiscreteMaze(neighbourstateweight = neighbourstateweight,
+                        chosenactionweight = chosenactionweight)
+    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
+    switchflag .= false
+    switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
+    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
+                            chosenactionweight, seed, rng)
+end
+function ChangeDiscreteMazeProbabilistic(maze; changeprobability = .01,
+                            stochastic = false,
+                            neighbourstateweight = stochastic ? .05 : 0.,
+                            nswitches = 1, ngoals = 1,
+                            chosenactionweight = 2. /3.,
+                            seed = 3)
+    rng = MersenneTwister(seed)
+    dm = DiscreteMaze(maze, ngoals = ngoals,
+                        compressed = switchflag,
+                        stochastic = stochastic,
+                        neighbourstateweight = neighbourstateweight,
+                        chosenactionweight = chosenactionweight)
+    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
+    switchflag .= false
+    switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
+    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
+                            chosenactionweight, seed, rng)
+end
+function ChangeDiscreteMazeProbabilistic(maze, switchpos;
+                            changeprobability = .01,
+                            stochastic = false,
+                            neighbourstateweight = stochastic ? .05 : 0.,
+                            ngoals = 1,
+                            chosenactionweight = 2. /3.,
+                            seed = 3)
+    rng = MersenneTwister(seed)
+    dm = DiscreteMaze(maze, ngoals = ngoals,
+                        compressed = false,
+                        stochastic = stochastic,
+                        neighbourstateweight = neighbourstateweight,
+                        chosenactionweight = chosenactionweight)
+    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
+    switchflag .= false
+    # @show changeprobability
+    # @show seed
+    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
+                            chosenactionweight, seed, rng)
+end
+
+# --- For standard RL learners all we need is:
+function interact!(env::ChangeDiscreteMazeProbabilistic, action)
+    env.switchflag .= false
+    r = rand(env.rng)
+
+    if r < env.changeprobability # Switch or not!
+        # println("Switch!")
+        nswitches = length(env.switchpos)
+        previousT = deepcopy(env.discretemaze.mdp.trans_probs)
+        for i in nswitches
+            setupswitch!(env, i)
+        end
+        updateswitchflag!(env, previousT)
+    end
+    interact!(env.discretemaze.mdp, action)
+end
+# # --- For MDP learner we need this:
+# function interact!(env::ChangeDiscreteMaze, action)
+#     env.stepcounter += 1
+#     env.switchflag .= false
+#     #@show env.stepcounter
+#     if any(env.stepcounter .== env.switchsteps)
+#         previousT = deepcopy(env.discretemaze.mdp.trans_probs)
+#         # && (env.discretemaze.mdp.isterminal[env.discretemaze.mdp.state] == 1))# Switch or not!
+#         #println("###########################################################")
+#         nswitches = findall(env.stepcounter .== env.switchsteps)
+#         # @show env.switchsteps
+#         # @show env.switchpos
+#         if any(env.switchpos .== env.discretemaze.mdp.state)
+#             for i in nswitches
+#                 push!(env.switchsteps, env.stepcounter+1)
+#                 push!(env.switchpos, env.switchpos[i])
+#             end
+#             # @show env.switchsteps
+#             # @show env.switchpos
+#             # println("i saw it!")
+#         else
+#             for i in nswitches
+#                 # @show i
+#                 setupswitch!(env, i)
+#             end
+#         end
+#         updateswitchflag!(env, previousT)
+#     end
+#     interact!(env.discretemaze.mdp, action)
+# end
+# function setupswitch!(env::ChangeDiscreteMaze, iswitch)
+#     #for i in 1:length(env.switchpos)
+#     env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
+#     # @show env.discretemaze.maze
+#     #end
+#     # # !!!!! Reset the whole transition matrix, so that new walls become "undef"!!!
+#     # NOTE: Not important for normal RL learners. But important for MDPlearner!
+#     ns = env.discretemaze.mdp.observationspace.n
+#     na = env.discretemaze.mdp.actionspace.n
+#     env.discretemaze.mdp.trans_probs[:] = Array{SparseVector{Float64,Int}}(undef, na, ns)
+#
+#     setTandR!(env.discretemaze)
+# end
+function setupswitch!(env::ChangeDiscreteMazeProbabilistic, iswitch)
+    env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
+    setTandR!(env.discretemaze)
+end
+reset!(env::ChangeDiscreteMazeProbabilistic) = reset!(env.discretemaze.mdp)
+getstate(env::ChangeDiscreteMazeProbabilistic) = getstate(env.discretemaze.mdp)
+actionspace(env::ChangeDiscreteMazeProbabilistic) = actionspace(env.discretemaze.mdp)
+plotenv(env::ChangeDiscreteMazeProbabilistic) = plotenv(env.discretemaze)
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
