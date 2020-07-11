@@ -1,79 +1,113 @@
-function getemptymaze(dimx, dimy)
-    maze = ones(Int, dimx, dimy)
-    maze[1,:] .= maze[end,:] .= 0
-    maze[:, 1] .= maze[:, end] .= 0
+using SparseArrays, LinearAlgebra
+struct Maze
+    dimx::Int
+    dimy::Int
+    walls::Symmetric{Bool,SparseMatrixCSC{Bool,Int}}
+end
+Base.length(m::Maze) = m.dimx * m.dimy
+Base.size(m::Maze) = (m.dimx, m.dimy)
+function Maze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20), rng = Random.GLOBAL_RNG)
+    m = emptymaze(nx, ny)
+    for _ in 1:nwalls
+        addrandomwall!(m, rng = rng)
+    end
+    breaksomewalls!(m, rng = rng)
+end
+function emptymaze(dimx, dimy)
+    Maze(dimx, dimy, Symmetric(sparse([], [], Bool[], dimx * dimy, dimx * dimy)))
+end
+iswall(maze, pos, dir) = hitborder(maze, pos, dir) || maze.walls[pos, nextpos(maze, pos, dir)]
+function setwall!(maze, pos, dir)
+    npos = nextpos(maze, pos, dir)
+    maze.walls.data[sort([pos, npos])...] = true
     maze
 end
-
-function setwall!(maze, startpos, endpos)
-    dimx, dimy = startpos - endpos
-    if dimx == 0
-        maze[startpos[1], startpos[2]:endpos[2]] .= 0
-    else
-        maze[startpos[1]:endpos[1], startpos[2]] .= 0
-    end
+function breakwall!(maze, pos, dir)
+    npos = nextpos(maze, pos, dir)
+    maze.walls.data[sort([pos, npos])...] = false
+    dropzeros!(maze.walls.data)
+    maze
+end
+function nextpos(maze, pos, dir)
+    dir == :up && return pos - 1
+    dir == :down && return pos + 1
+    dir == :left && return pos - maze.dimy
+    dir == :right && return pos + maze.dimy
+end
+function hitborder(maze, pos, dir)
+    dir == :up && pos % maze.dimy == 1 && return true
+    dir == :down && pos % maze.dimy == 0 && return true
+    dir == :left && pos <= maze.dimy && return true
+    dir == :right && pos > maze.dimy * (maze.dimx - 1) && return true
+    return false
 end
 
-function indto2d(maze, pos)
-    dimx = size(maze, 1)
-    [rem(pos, dimx), div(pos, dimx) + 1]
-end
-function posto1d(maze, pos)
-    dimx = size(maze, 1)
-    (pos[2] - 1) * dimx + pos[1]
+function orthogonal_directions(dir)
+    dir ∈ (:up, :down) && return (:left, :right)
+    return (:up, :down)
 end
 
-function checkpos(maze, pos)
-    count = 0
-    for dx in -1:1
-        for dy in -1:1
-            count += maze[(pos + [dx, dy])...] == 0
+function is_wall_neighbour(maze, pos)
+    for dir in (:up, :down, :left, :right)
+        iswall(maze, pos, dir) && return true
+    end
+    for npos in (nextpos(maze, pos, :up), nextpos(maze, pos, :down))
+        for dir in (:left, :right, :up, :down)
+            iswall(maze, npos, dir) && return true
         end
     end
-    count
+    return false
+end
+function is_wall_tangential(maze, pos, dir)
+    for ortho_dir in orthogonal_directions(dir)
+        iswall(maze, pos, ortho_dir) && return true
+    end
+    return false
+end
+is_wall_ahead(maze, pos, dir) = iswall(maze, pos, dir)
+
+function addrandomwall!(maze; rng = Random.GLOBAL_RNG)
+    potential_startpos = filter(x -> !is_wall_neighbour(maze, x), 1:maze.dimx * maze.dimy)
+    if potential_startpos == []
+        @warn("Cannot add a random wall.")
+        return maze
+    end
+    pos = rand(rng, potential_startpos)
+    direction = rand(rng, (:up, :down, :left, :right))
+    while true
+        setwall!(maze, pos, orthogonal_directions(direction)[2])
+        pos = nextpos(maze, pos, direction)
+        is_wall_tangential(maze, pos, direction) && break
+        if is_wall_ahead(maze, pos, direction)
+            setwall!(maze, pos, orthogonal_directions(direction)[2])
+            break
+        end
+    end
+    return maze
 end
 
-function addrandomwall!(maze)
-    startpos = rand(ENV_RNG, findall(x -> x != 0, maze[:]))
-    startpos = indto2d(maze, startpos)
-    starttouch = checkpos(maze, startpos)
-    if starttouch > 0
-        return 0
-    end
-    endx, endy = startpos
-    if rand(ENV_RNG, 0:1) == 0 # horizontal
-        while checkpos(maze, [endx, startpos[2]]) == 0
-            endx += 1
-        end
-        if maze[endx + 1, startpos[2]] == 1 &&
-            maze[endx + 1, startpos[2] + 1] ==
-            maze[endx + 1, startpos[2] - 1] == 0
-            endx -= 1
-        end
-    else
-        while checkpos(maze, [startpos[1], endy]) == 0
-            endy += 1
-        end
-        if maze[startpos[1], endy + 1] == 1 &&
-            maze[startpos[1] + 1, endy + 1] ==
-            maze[startpos[1] - 1, endy + 1] == 0
-            endx -= 1
-        end
-    end
-    setwall!(maze, startpos, [endx, endy])
-    return 1
+function n_effective(n, f, list)
+    N = n === nothing ? div(length(list), Int(1/f)) : n
+    min(N, length(list))
 end
-
-function setTandR!(d)
-    for s in d.statefrommaze[findall(x -> x != 0, reshape(d.maze, :))]
-        setTandR!(d, s)
-    end
+function breaksomewalls!(m; f = 1/50, n = nothing, rng = Random.GLOBAL_RNG)
+    wall_idxs = findall(m.walls.data)
+    pos = sample(rng, wall_idxs, n_effective(n, f, wall_idxs), replace = false)
+    m.walls.data[pos] .= false
+    dropzeros!(m.walls.data)
+    m
 end
+# function addobstacles!(m; f = 1/100, n = nothing, rng = Random.GLOBAL_RNG)
+#     nz = findall(x -> x == 1, reshape(m, :))
+#     pos = sample(rng, nz, n_effective(n, f, nz), replace = false)
+#     m[pos] .= 0
+#     m
+# end
+setTandR!(d) = for s in 1:length(d.maze) setTandR!(d, s) end
 function setTandR!(d, s)
     # @show s
     T = d.mdp.trans_probs
     R = d.mdp.reward
-    statefrommaze = d.statefrommaze
     goals = d.goals
     # @show goals
     ns = d.mdp.observationspace.n
@@ -89,83 +123,51 @@ function setTandR!(d, s)
         R.value[s] = d.goalrewards[idx_goals]
     end
     # @show unique(R.value)
-    pos = indto2d(maze, d.mazefromstate[s])
-    # @show pos
     if (!(in(:chosenactionweight, fieldnames(typeof(d))))
         || (d.chosenactionweight == 1.))
-        for (aind, a) in enumerate(([0, 1], [1, 0], [0, -1], [-1, 0]))
+        for (aind, a) in enumerate((:up, :down, :left, :right))
             # @show (aind, a)
-            nextpos = maze[(pos + a)...] == 0 ? pos : pos + a
-            # @show nextpos
+            npos = iswall(maze, s, a) ? s : nextpos(maze, s, a)
+            # @show npos
             if d.neighbourstateweight > 0
-                positions = []
-                push!(positions, nextpos)
+                positions = [npos]
                 # @show positions
                 weights = [1.]
-                for dir in ([0, 1], [1, 0], [0, -1], [-1, 0])
-                    if maze[(nextpos + dir)...] != 0
-                        push!(positions, nextpos + dir)
+                for dir in (:up, :down, :left, :right)
+                    if !iswall(maze, npos, dir)
+                        push!(positions, nextpos(maze, npos, dir))
                         push!(weights, d.neighbourstateweight)
                     end
                 end
                 # @show positions
                 # @show weights
-                states = map(p -> statefrommaze[posto1d(maze, p)], positions)
                 weights /= sum(weights)
                 # @show weights
-                T[aind, s] = sparsevec(states, weights, ns)
+                T[aind, s] = sparsevec(positions, weights, ns)
             else
-                nexts = statefrommaze[posto1d(maze, nextpos)]
-                T[aind, s] = sparsevec([nexts], [1.], ns)
+                T[aind, s] = sparsevec([npos], [1.], ns)
             end
         end
     else
         positions = []
-        for (aind, a) in enumerate(([0, 1], [1, 0], [0, -1], [-1, 0]))
+        for (aind, a) in enumerate((:up, :down, :left, :right))
             # @show (aind, a)
-            nextpos = maze[(pos + a)...] == 0 ? pos : pos + a
-            push!(positions, nextpos)
+            npos = iswall(maze, s, a) ? s : nextpos(maze, s, a)
+            push!(positions, npos)
         end
         # @show positions
-        for (aind, a) in enumerate(([0, 1], [1, 0], [0, -1], [-1, 0]))
+        for (aind, a) in enumerate((:up, :down, :left, :right))
             # @show (aind, a)
             weights = (1. - d.chosenactionweight)/ 3. * ones(length(positions))
             weights[aind] = d.chosenactionweight
             weights /= sum(weights)
             # @show weights
-            states = map(p -> statefrommaze[posto1d(maze, p)], positions)
-            # @show states
-            T[aind, s] = sparsevec(states, weights, ns)
+            T[aind, s] = sparsevec(positions, weights, ns)
             # @show T[aind, s]
         end
     end
 end
 
-function isinsideframe(maze, i)
-    nx, ny = size(maze)
-    i > nx && i < nx * (ny - 1) && i % nx != 0 && i % nx != 1
-end
-function n_effective(n, f, list)
-    N = n === nothing ? div(length(list), Int(1/f)) : n
-    min(N, length(list))
-end
-function breaksomewalls!(m; f = 1/50, n = nothing, rng = ENV_RNG)
-    zeros = Int[]
-    for i in 1:length(m)
-        m[i] == 0 && isinsideframe(m, i) && push!(zeros, i)
-    end
-    pos = sample(rng, zeros, n_effective(n, f, zeros), replace = false)
-    m[pos] .= 1
-    m
-end
-export breaksomewalls!
-function addobstacles!(m; f = 1/100, n = nothing, rng = ENV_RNG)
-    nz = findall(x -> x == 1, reshape(m, :))
-    pos = sample(rng, nz, n_effective(n, f, nz), replace = false)
-    m[pos] .= 0
-    m
-end
-export addobstacles!
 """
     struct DiscreteMaze
         mdp::MDP
@@ -176,11 +178,9 @@ export addobstacles!
 """
 struct DiscreteMaze{T}
     mdp::T
-    maze::Array{Int, 2}
+    maze::Maze
     goals::Array{Int, 1}
     goalrewards::Array{Float64, 1}
-    statefrommaze::Array{Int, 1}
-    mazefromstate::Array{Int, 1}
     neighbourstateweight::Float64
     chosenactionweight::Float64
 end
@@ -188,7 +188,6 @@ end
     DiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 10), ngoals = 1,
                    goalrewards = 1, stepcost = 0, stochastic = false,
                    neighbourstateweight = .05)
-
 Returns a `DiscreteMaze` of width `nx` and height `ny` with `nwalls` walls and
 `ngoals` goal locations with reward `goalreward` (a list of different rewards
 for the different goal states or constant reward for all goals), cost of moving
@@ -196,45 +195,39 @@ for the different goal states or constant reward for all goals), cost of moving
 a certain probability to a neighbouring state, where `neighbourstateweight`
 controls this probability.
 """
-function DiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 10), kwargs...)
-    m = getemptymaze(nx, ny)
-    [addrandomwall!(m) for _ in 1:nwalls]
-    breaksomewalls!(m)
-    DiscreteMaze(m; kwargs...)
-end
-function DiscreteMaze(maze; ngoals = 1, goalrewards = 1., stepcost = 0,
+DiscreteMaze(maze; kwargs...) = DiscreteMaze(; maze = maze, kwargs...)
+function DiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20),
+                      rng = Random.GLOBAL_RNG,
+                      maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
+                      ngoals = 1,
+                      goalrewards = 1.,
+                      stepcost = 0,
                       stochastic = false,
                       neighbourstateweight = stochastic ? .05 : 0.,
-                      compressed = true,
                       chosenactionweight = 1.)
     na = 4
-    nzpos = findall(x -> x != 0, reshape(maze, :))
-    statefrommaze = compressed ? cumsum(reshape(maze, :)) : collect(1:length(maze))
-    mazefromstate = compressed ? nzpos : collect(1:length(maze))
-    legalstates = statefrommaze[nzpos]
-    ns = length(mazefromstate)
+    ns = length(maze)
+    legalstates = 1:ns
     T = Array{SparseVector{Float64,Int}}(undef, na, ns)
-    goals = sort(sample(ENV_RNG, legalstates, ngoals, replace = false))
+    goals = sort(sample(rng, legalstates, ngoals, replace = false))
     R = DeterministicNextStateReward(fill(-stepcost, ns))
     isterminal = zeros(Int, ns); isterminal[goals] .= 1
     isinitial = setdiff(legalstates, goals)
     res = DiscreteMaze(MDP(DiscreteSpace(ns, 1),
                            DiscreteSpace(na, 1),
-                           rand(ENV_RNG, legalstates),
+                           rand(rng, legalstates),
                            T, R,
-                           isinitial, isterminal),
+                           isinitial,
+                           isterminal),
                        maze,
                        goals,
                        typeof(goalrewards) <: Number ? fill(goalrewards, ngoals) :
                                                        goalrewards,
-                       statefrommaze,
-                       mazefromstate,
                        neighbourstateweight,
                        chosenactionweight)
     setTandR!(res)
     res
 end
-
 interact!(env::DiscreteMaze, a) = interact!(env.mdp, a)
 reset!(env::DiscreteMaze) = reset!(env.mdp)
 getstate(env::DiscreteMaze) = getstate(env.mdp)
@@ -251,47 +244,21 @@ mutable struct ChangeDiscreteMaze{DiscreteMaze}
     switchpos::Array{Int, 1}
     chosenactionweight::Float64
 end
-function ChangeDiscreteMaze(; switchsteps = [10^2], stochastic = false,
+function ChangeDiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20),
+                            rng = Random.GLOBAL_RNG,
+                            maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
+                            switchsteps = [10^2], stochastic = false,
+                            nswitches = 1,
+                            switchpos = rand(ENV_RNG, 1:length(maze), nswitches),
                             neighbourstateweight = stochastic ? .05 : 0.,
-                            nswitches = 1, chosenactionweight = 1.)
-    dm = DiscreteMaze(neighbourstateweight = neighbourstateweight,
+                            chosenactionweight = 1.)
+    dm = DiscreteMaze(maze = maze, neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
+    switchflag = fill(false, 4, length(dm.maze))
     ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, chosenactionweight)
 end
-function ChangeDiscreteMaze(maze; switchsteps = [10^2], stochastic = false,
-                            neighbourstateweight = stochastic ? .05 : 0.,
-                            nswitches = 1, ngoals = 1,
-                            chosenactionweight = 2. /3.)
-
-    dm = DiscreteMaze(maze, ngoals = ngoals,
-                        compressed = switchflag,
-                        stochastic = stochastic,
-                        neighbourstateweight = neighbourstateweight,
-                        chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
-    ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, chosenactionweight)
-end
-function ChangeDiscreteMaze(maze, switchpos;
-                            switchsteps = 10^2*ones(Int, length(switchpos)),
-                            stochastic = false,
-                            neighbourstateweight = stochastic ? .05 : 0.,
-                            ngoals = 1,
-                            chosenactionweight = 2. /3.)
-
-    dm = DiscreteMaze(maze, ngoals = ngoals,
-                        compressed = false,
-                        stochastic = stochastic,
-                        neighbourstateweight = neighbourstateweight,
-                        chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, chosenactionweight)
-end
+ChangeDiscreteMaze(maze; kwargs...) = ChangeDiscreteMaze(; maze = maze, kwargs...)
+ChangeDiscreteMaze(maze, switchpos; kwargs...) = ChangeDiscreteMaze(; maze = maze, switchpos = switchpos, kwargs...)
 # --- For standard RL learners all we need is:
 function interact!(env::ChangeDiscreteMaze, action)
     env.stepcounter += 1
@@ -404,58 +371,25 @@ mutable struct ChangeDiscreteMazeProbabilistic{DiscreteMaze}
     seed::Any
     rng::MersenneTwister # Used only for switches!
 end
-function ChangeDiscreteMazeProbabilistic(; changeprobability = .01,
+function ChangeDiscreteMazeProbabilistic(; nx = 40, ny = 40, nwalls = div(nx*ny, 20),
+                            seed = 3,
+                            rng = MersenneTwister(seed),
+                            maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
+                            changeprobability = .01, nswitches = 1,
+                            switchpos = rand(ENV_RNG, 1:length(maze), nswitches),
                             stochastic = false,
                             neighbourstateweight = stochastic ? .05 : 0.,
-                            nswitches = 1, chosenactionweight = 1.,
-                            seed = 3)
-    rng = MersenneTwister(seed)
-    dm = DiscreteMaze(neighbourstateweight = neighbourstateweight,
+                            chosenactionweight = 1.)
+    dm = DiscreteMaze(maze = maze, neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
+    switchflag = fill(false, 4, length(dm.maze))
     ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
                             chosenactionweight, seed, rng)
 end
-function ChangeDiscreteMazeProbabilistic(maze; changeprobability = .01,
-                            stochastic = false,
-                            neighbourstateweight = stochastic ? .05 : 0.,
-                            nswitches = 1, ngoals = 1,
-                            chosenactionweight = 2. /3.,
-                            seed = 3)
-    rng = MersenneTwister(seed)
-    dm = DiscreteMaze(maze, ngoals = ngoals,
-                        compressed = switchflag,
-                        stochastic = stochastic,
-                        neighbourstateweight = neighbourstateweight,
-                        chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    switchpos = rand(ENV_RNG, 1:length(reshape(dm.maze, :)), nswitches)
-    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
-                            chosenactionweight, seed, rng)
-end
-function ChangeDiscreteMazeProbabilistic(maze, switchpos;
-                            changeprobability = .01,
-                            stochastic = false,
-                            neighbourstateweight = stochastic ? .05 : 0.,
-                            ngoals = 1,
-                            chosenactionweight = 2. /3.,
-                            seed = 3)
-    rng = MersenneTwister(seed)
-    dm = DiscreteMaze(maze, ngoals = ngoals,
-                        compressed = false,
-                        stochastic = stochastic,
-                        neighbourstateweight = neighbourstateweight,
-                        chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    # @show changeprobability
-    # @show seed
-    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
-                            chosenactionweight, seed, rng)
-end
+ChangeDiscreteMazeProbabilistic(maze; kwargs...) =
+    ChangeDiscreteMazeProbabilistic(; maze = maze, kwargs...)
+ChangeDiscreteMazeProbabilistic(maze, switchpos; kwargs...) =
+    ChangeDiscreteMazeProbabilistic(; maze = maze, switchpos = switchpos, kwargs...)
 
 # --- For standard RL learners all we need is:
 function interact!(env::ChangeDiscreteMazeProbabilistic, action)
@@ -539,35 +473,22 @@ mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     rng::MersenneTwister # Used only for switches!
     chosenactionweight::Float64
 end
-function RandomChangeDiscreteMaze(; nx = 20, ny = 20, ngoals = 4,
-                    nwalls = 10, compressed = false,
+function RandomChangeDiscreteMaze(; nx = 20, ny = 20, nwalls = 10,
+                                    seed = 3, rng = MersenneTwister(seed),
+                            maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
+                            ngoals = 4,
                     stochastic = false,
                     neighbourstateweight = stochastic ? .05 : 0.,
                     chosenactionweight = 2. /3., nbreak = 2,
-                    nadd = 4, changeprobability = 0.01, seed = 3)
-
-    rng = MersenneTwister(seed)
-    dm = DiscreteMaze(nx = nx, ny = ny, ngoals = ngoals, nwalls = nwalls,
-                        compressed = compressed, stochastic = stochastic,
+                    nadd = 4, changeprobability = 0.01)
+    dm = DiscreteMaze(maze = maze, stochastic = stochastic,
                         neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, nx*ny)
-    switchflag .= false
+    switchflag = fill(false, 4, length(dm.maze))
     RandomChangeDiscreteMaze(dm, nbreak, nadd, changeprobability, switchflag,
                             seed, rng, chosenactionweight)
 end
-function RandomChangeDiscreteMaze(maze; ngoals = 1, nbreak = 2, nadd = 4,
-                                changeprobability = 0.01,
-                                chosenactionweight = 2. /3.,
-                                seed = 3)
-    rng = MersenneTwister(seed)
-    dm = DiscreteMaze(maze, ngoals = ngoals, compressed = false,
-                        chosenactionweight = chosenactionweight)
-    switchflag = Array{Bool, 2}(undef, 4, size(dm.maze, 1)*size(dm.maze, 2))
-    switchflag .= false
-    RandomChangeDiscreteMaze(dm, nbreak, nadd, changeprobability, switchflag,
-                            seed, rng, chosenactionweight)
-end
+RandomChangeDiscreteMaze(maze; kwargs...) = RandomChangeDiscreteMaze(; maze = maze, kwargs...)
 function interact!(env::RandomChangeDiscreteMaze, action)
     env.switchflag .= false
     r = rand(env.rng)
@@ -588,17 +509,27 @@ reset!(env::RandomChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
 getstate(env::RandomChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
 actionspace(env::RandomChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
 plotenv(env::RandomChangeDiscreteMaze) = plotenv(env.discretemaze)
-using Plots
+
 function plotenv(env::DiscreteMaze)
     goals = env.goals
-    mazefromstate = env.mazefromstate
-    m = deepcopy(env.maze)
-    m[mazefromstate[goals]] .= 3
-    # for i in 1:length(goals)
-    #     if env.goalrewards[i] > 1.
-    #         m[mazefromstate[goals[i]]] = 4
-    #     end
-    # end
-    m[mazefromstate[env.mdp.state]] = 2
-    imshow(m, colormap = 21, size = (400, 400))
+    px = 6
+    m = zeros(px*env.maze.dimx, px*env.maze.dimy)
+    for i in 1:env.maze.dimx
+        for j in 1:env.maze.dimy
+            s = (i - 1) * env.maze.dimy + j
+            iswall(env.maze, s, :down) && (m[(i-1)*px+1:i*px, j*px] .= -3)
+            iswall(env.maze, s, :up) && (m[(i-1)*px+1:i*px, (j-1)*px+1] .= -3)
+            iswall(env.maze, s, :right) && (m[i*px, (j-1)*px+1:j*px] .= -3)
+            iswall(env.maze, s, :left) && (m[(i-1)*px+1, (j-1)*px+1:j*px] .= -3)
+            if s == env.mdp.state
+                val = -1
+            elseif s in goals
+                val = 1
+            else
+                continue
+            end
+            m[(i-1)*px+2:i*px-1, (j-1)*px+2:j*px-1] .= val
+        end
+    end
+    imshow(m, clim = (-3, 3), colormap = 42)
 end
