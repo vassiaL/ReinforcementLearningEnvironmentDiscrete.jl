@@ -6,7 +6,7 @@ struct Maze
 end
 Base.length(m::Maze) = m.dimx * m.dimy
 Base.size(m::Maze) = (m.dimx, m.dimy)
-function Maze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20), rng = Random.GLOBAL_RNG)
+function Maze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20), rng = ENV_RNG) #Random.GLOBAL_RNG)
     m = emptymaze(nx, ny)
     for _ in 1:nwalls
         addrandomwall!(m, rng = rng)
@@ -66,7 +66,7 @@ function is_wall_tangential(maze, pos, dir)
 end
 is_wall_ahead(maze, pos, dir) = iswall(maze, pos, dir)
 
-function addrandomwall!(maze; rng = Random.GLOBAL_RNG)
+function addrandomwall!(maze; rng = ENV_RNG) # Random.GLOBAL_RNG)
     potential_startpos = filter(x -> !is_wall_neighbour(maze, x), 1:maze.dimx * maze.dimy)
     if potential_startpos == []
         @warn("Cannot add a random wall.")
@@ -90,7 +90,7 @@ function n_effective(n, f, list)
     N = n === nothing ? div(length(list), Int(1/f)) : n
     min(N, length(list))
 end
-function breaksomewalls!(m; f = 1/50, n = nothing, rng = Random.GLOBAL_RNG)
+function breaksomewalls!(m; f = 1/50, n = nothing, rng = ENV_RNG) #Random.GLOBAL_RNG)
     wall_idxs = findall(m.walls.data)
     pos = sample(rng, wall_idxs, n_effective(n, f, wall_idxs), replace = false)
     m.walls.data[pos] .= false
@@ -197,7 +197,7 @@ controls this probability.
 """
 DiscreteMaze(maze; kwargs...) = DiscreteMaze(; maze = maze, kwargs...)
 function DiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20),
-                      rng = Random.GLOBAL_RNG,
+                      rng = ENV_RNG, #Random.GLOBAL_RNG,
                       maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
                       ngoals = 1,
                       goalrewards = 1.,
@@ -240,25 +240,31 @@ mutable struct ChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
     stepcounter::Int
     switchsteps::Array{Int, 1}
-    switchflag::Array{Bool, 2} # Used for RecordSwitches callback
     switchpos::Array{Int, 1}
+    switchdir::Array{Symbol, 1}
+    switchflag::Array{Bool, 2} # Used for RecordSwitches callback
     chosenactionweight::Float64
 end
 function ChangeDiscreteMaze(; nx = 40, ny = 40, nwalls = div(nx*ny, 20),
-                            rng = Random.GLOBAL_RNG,
+                            rng = ENV_RNG, #Random.GLOBAL_RNG,
                             maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
-                            switchsteps = [10^2], stochastic = false,
+                            stochastic = false,
+                            ngoals = 1,  goalrewards = 1.,
                             nswitches = 1,
                             switchpos = rand(ENV_RNG, 1:length(maze), nswitches),
+                            switchdir = rand(ENV_RNG, [:up, :down, :left, :right], nswitches),
+                            switchsteps = 10^2 * ones(Int, length(switchpos)),
                             neighbourstateweight = stochastic ? .05 : 0.,
                             chosenactionweight = 1.)
-    dm = DiscreteMaze(maze = maze, neighbourstateweight = neighbourstateweight,
+    dm = DiscreteMaze(maze = maze, ngoals = ngoals, goalrewards=goalrewards,
+                        neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
     switchflag = fill(false, 4, length(dm.maze))
-    ChangeDiscreteMaze(dm, 0, switchsteps, switchflag, switchpos, chosenactionweight)
+    ChangeDiscreteMaze(dm, 0, switchsteps, switchpos, switchdir, switchflag, chosenactionweight)
 end
 ChangeDiscreteMaze(maze; kwargs...) = ChangeDiscreteMaze(; maze = maze, kwargs...)
-ChangeDiscreteMaze(maze, switchpos; kwargs...) = ChangeDiscreteMaze(; maze = maze, switchpos = switchpos, kwargs...)
+ChangeDiscreteMaze(maze, switchpos, switchdir; kwargs...) =
+    ChangeDiscreteMaze(; maze = maze, switchpos = switchpos, switchdir = switchdir, kwargs...)
 # --- For standard RL learners all we need is:
 function interact!(env::ChangeDiscreteMaze, action)
     env.stepcounter += 1
@@ -278,9 +284,12 @@ function interact!(env::ChangeDiscreteMaze, action)
 end
 
 function setupswitch!(env::ChangeDiscreteMaze, iswitch)
-    #for i in 1:length(env.switchpos)
-    env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
-    #end
+    if iswall(env.discretemaze.maze, env.switchpos[iswitch], env.switchdir[iswitch])
+        breakwall!(env.discretemaze.maze, env.switchpos[iswitch], env.switchdir[iswitch])
+    else
+        setwall!(env.discretemaze.maze, env.switchpos[iswitch], env.switchdir[iswitch])
+    end
+    # env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
     setTandR!(env.discretemaze)
 end
 # # --- For MDP learner we need this:
@@ -365,8 +374,9 @@ plotenv(env::ChangeDiscreteMaze) = plotenv(env.discretemaze)
 mutable struct ChangeDiscreteMazeProbabilistic{DiscreteMaze}
     discretemaze::DiscreteMaze
     changeprobability::Float64
-    switchflag::Array{Bool, 2} # Used for RecordSwitches callback
     switchpos::Array{Int, 1}
+    switchdir::Array{Symbol, 1}
+    switchflag::Array{Bool, 2} # Used for RecordSwitches callback
     chosenactionweight::Float64
     seed::Any
     rng::MersenneTwister # Used only for switches!
@@ -375,21 +385,25 @@ function ChangeDiscreteMazeProbabilistic(; nx = 40, ny = 40, nwalls = div(nx*ny,
                             seed = 3,
                             rng = MersenneTwister(seed),
                             maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
-                            changeprobability = .01, nswitches = 1,
+                            ngoals = 1,  goalrewards = 1.,
+                            changeprobability = .01,
+                            nswitches = 1,
                             switchpos = rand(ENV_RNG, 1:length(maze), nswitches),
+                            switchdir = rand(ENV_RNG, [:up, :down, :left, :right], nswitches),
                             stochastic = false,
                             neighbourstateweight = stochastic ? .05 : 0.,
                             chosenactionweight = 1.)
-    dm = DiscreteMaze(maze = maze, neighbourstateweight = neighbourstateweight,
+    dm = DiscreteMaze(maze = maze, ngoals = ngoals, goalrewards=goalrewards,
+                        neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
     switchflag = fill(false, 4, length(dm.maze))
-    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchflag, switchpos,
-                            chosenactionweight, seed, rng)
+    ChangeDiscreteMazeProbabilistic(dm, changeprobability, switchpos, switchdir,
+                            switchflag, chosenactionweight, seed, rng)
 end
 ChangeDiscreteMazeProbabilistic(maze; kwargs...) =
     ChangeDiscreteMazeProbabilistic(; maze = maze, kwargs...)
-ChangeDiscreteMazeProbabilistic(maze, switchpos; kwargs...) =
-    ChangeDiscreteMazeProbabilistic(; maze = maze, switchpos = switchpos, kwargs...)
+ChangeDiscreteMazeProbabilistic(maze, switchpos, switchdir; kwargs...) =
+    ChangeDiscreteMazeProbabilistic(; maze = maze, switchpos = switchpos, switchdir = switchdir, kwargs...)
 
 # --- For standard RL learners all we need is:
 function interact!(env::ChangeDiscreteMazeProbabilistic, action)
@@ -397,13 +411,18 @@ function interact!(env::ChangeDiscreteMazeProbabilistic, action)
     r = rand(env.rng)
 
     if r < env.changeprobability # Switch or not!
-        # println("Switch!")
+        println("Switch!")
+        # @show env.switchflag[:, 76]
+        # @show env.discretemaze.mdp.trans_probs[1, 76]
         nswitches = length(env.switchpos)
         previousT = deepcopy(env.discretemaze.mdp.trans_probs)
         for i in nswitches
             setupswitch!(env, i)
         end
         updateswitchflag!(env, previousT)
+        # @show env.switchflag[:, 76]
+        # @show env.discretemaze.mdp.trans_probs[1, 76]
+        nswitches = length(env.switchpos)
     end
     interact!(env.discretemaze.mdp, action)
 end
@@ -451,7 +470,12 @@ end
 #     setTandR!(env.discretemaze)
 # end
 function setupswitch!(env::ChangeDiscreteMazeProbabilistic, iswitch)
-    env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
+    if iswall(env.discretemaze.maze, env.switchpos[iswitch], env.switchdir[iswitch])
+        breakwall!(env.discretemaze.maze, env.switchpos[iswitch], env.switchdir[iswitch])
+    else
+        setwall!(env.discretemaze.maze, env.switchpos[iswitch], env.switchdir[iswitch])
+    end
+    # env.discretemaze.maze[env.switchpos[iswitch]] = 1 - env.discretemaze.maze[env.switchpos[iswitch]]
     setTandR!(env.discretemaze)
 end
 reset!(env::ChangeDiscreteMazeProbabilistic) = reset!(env.discretemaze.mdp)
@@ -462,7 +486,8 @@ plotenv(env::ChangeDiscreteMazeProbabilistic) = plotenv(env.discretemaze)
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-
+# NOTE: RandomChangeDiscreteMaze is not tested
+# ------------------------------------------------------------------------------
 mutable struct RandomChangeDiscreteMaze{DiscreteMaze}
     discretemaze::DiscreteMaze
     nbreak::Int
@@ -476,12 +501,13 @@ end
 function RandomChangeDiscreteMaze(; nx = 20, ny = 20, nwalls = 10,
                                     seed = 3, rng = MersenneTwister(seed),
                             maze = Maze(nx = nx, ny = ny, nwalls = nwalls, rng = rng),
-                            ngoals = 4,
+                            ngoals = 4, goalrewards = 1.,
                     stochastic = false,
                     neighbourstateweight = stochastic ? .05 : 0.,
-                    chosenactionweight = 2. /3., nbreak = 2,
-                    nadd = 4, changeprobability = 0.01)
-    dm = DiscreteMaze(maze = maze, stochastic = stochastic,
+                    chosenactionweight = 2. /3.,
+                    nbreak = 2, nadd = 4, changeprobability = 0.01)
+    dm = DiscreteMaze(maze = maze, ngoals = ngoals, goalrewards=goalrewards,
+                        stochastic = stochastic,
                         neighbourstateweight = neighbourstateweight,
                         chosenactionweight = chosenactionweight)
     switchflag = fill(false, 4, length(dm.maze))
@@ -504,15 +530,17 @@ function setupswitch!(env::RandomChangeDiscreteMaze)
     addobstacles!(env.discretemaze.maze, n = env.nadd, rng = env.rng)
     setTandR!(env.discretemaze)
 end
-
 reset!(env::RandomChangeDiscreteMaze) = reset!(env.discretemaze.mdp)
 getstate(env::RandomChangeDiscreteMaze) = getstate(env.discretemaze.mdp)
 actionspace(env::RandomChangeDiscreteMaze) = actionspace(env.discretemaze.mdp)
 plotenv(env::RandomChangeDiscreteMaze) = plotenv(env.discretemaze)
-
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 function plotenv(env::DiscreteMaze)
     goals = env.goals
-    px = 6
+    # px = 6
+    px = 16
     m = zeros(px*env.maze.dimx, px*env.maze.dimy)
     for i in 1:env.maze.dimx
         for j in 1:env.maze.dimy
