@@ -411,7 +411,7 @@ function interact!(env::ChangeDiscreteMazeProbabilistic, action)
     r = rand(env.rng)
 
     if r < env.changeprobability # Switch or not!
-        println("Switch!")
+        # println("Switch!")
         # @show env.switchflag[:, 76]
         # @show env.discretemaze.mdp.trans_probs[1, 76]
         nswitches = length(env.switchpos)
