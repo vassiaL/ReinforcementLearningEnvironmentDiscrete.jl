@@ -65,7 +65,11 @@ function ChangeMDP(; ns = 10, na = 4, nrewards = 2,
                     seed = 3)
     rng = MersenneTwister(seed)
     mdpbase = MDP(ns, na, nrewards, init = "random")
+
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
+    T = removeautoconnections!(T, stochasticity, rng)
+    T = replaceNaNswithdeterminism!(T, rng)
+
     mdpbase.trans_probs = deepcopy(T)
     switchflag = Array{Bool, 2}(undef, na, ns)
     switchflag .= false
@@ -88,11 +92,13 @@ function interact!(env::ChangeMDP, action)
         # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
         # println("%%%%%%%%%%%%%% CHANGE!!! %%%%%%%%%%%%%%%%%%%%%%")
         # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        # @show CartesianIndices(env.mdp.trans_probs)[i]
-        # @show env.mdp.trans_probs[i]
+        @show CartesianIndices(env.mdp.trans_probs)[i]
+        @show env.mdp.trans_probs[i]
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
+        T = removeautoconnections!(T, env.stochasticity, env.rng, CartesianIndices(env.mdp.trans_probs)[i][2])
+        T = replaceNaNswithdeterminism!(T, env.rng, CartesianIndices(env.mdp.trans_probs)[i][2])
         env.mdp.trans_probs[i] = deepcopy(T)
-        # @show env.mdp.trans_probs[i]
+        @show env.mdp.trans_probs[i]
         env.switchflag[i] = true
     end
     interact!(env.mdp, action)
@@ -381,3 +387,57 @@ end
 
 """
 run!(mdp::MDP, policy::Array{Int64, 1}) = run!(mdp, policy[mdp.state])
+
+
+
+function replaceNaNswithdeterminism!(T, rng)
+    nanvectorindices = findall([any(isnan.(i)) for i in T])
+    if ~isempty(nanvectorindices)
+        for k in nanvectorindices
+            # @show k
+            # T[k[1], k[2]] = zeros(ns)
+            # possiblenextstates = deleteat!(collect(1:ns), k[2])
+            # nextstate = rand(rng, possiblenextstates)
+            # T[k[1], k[2]][nextstate] = 1.
+            T[k[1], k[2]]  = replaceNaNswithdeterminism!(T[k[1], k[2]], rng, k[2])
+        end
+    end
+    T
+end
+function replaceNaNswithdeterminism!(T::Array{Float64,1}, rng, stateindex)
+    ns = length(T)
+    # @show T
+    if any(isnan.(T))
+        # @show stateindex
+        T = zeros(ns)
+        possiblenextstates = deleteat!(collect(1:ns), stateindex)
+        nextstate = rand(rng, possiblenextstates)
+        T[nextstate] = 1.
+    end
+    T
+end
+export replaceNaNswithdeterminism!
+function removeautoconnections!(T, stochasticity, rng)
+    # na = size(T,1)
+    # ns = size(T,2)
+    for a in 1:size(T,1)
+        for s in 1:size(T,2)
+            # @show (a, s)
+            T[a, s] = removeautoconnections!(T[a, s], stochasticity, rng, s)
+            # while T[a, s][s] > 0.9999
+            #     T[a, s] = rand(rng, Dirichlet(ns, stochasticity))
+            # end
+        end
+    end
+    T
+end
+function removeautoconnections!(T::Array{Float64,1}, stochasticity, rng, stateindex)
+    ns = length(T)
+    # @show T
+    while T[stateindex] > 0.9999
+        # @show stateindex
+        T = rand(rng, Dirichlet(ns, stochasticity))
+    end
+    T
+end
+export removeautoconnections!
