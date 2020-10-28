@@ -69,6 +69,7 @@ function ChangeMDP(; ns = 10, na = 4, nrewards = 2,
     T = [rand(ENV_RNG, Dirichlet(ns, stochasticity)) for a in 1:na, s in 1:ns]
     T = removeautoconnections!(T, stochasticity, rng)
     T = replaceNaNswithdeterminism!(T, rng)
+    T,~,~ = ensuretransitiontoterminal!(T, stochasticity, rng, mdpbase.isterminal)
 
     mdpbase.trans_probs = deepcopy(T)
     switchflag = Array{Bool, 2}(undef, na, ns)
@@ -92,15 +93,32 @@ function interact!(env::ChangeMDP, action)
         # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
         # println("%%%%%%%%%%%%%% CHANGE!!! %%%%%%%%%%%%%%%%%%%%%%")
         # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        @show CartesianIndices(env.mdp.trans_probs)[i]
-        @show env.mdp.trans_probs[i]
+        # @show CartesianIndices(env.mdp.trans_probs)[i]
+        # @show env.mdp.trans_probs[i]
         T = rand(env.rng, Dirichlet(env.ns, env.stochasticity))
         T = removeautoconnections!(T, env.stochasticity, env.rng, CartesianIndices(env.mdp.trans_probs)[i][2])
         T = replaceNaNswithdeterminism!(T, env.rng, CartesianIndices(env.mdp.trans_probs)[i][2])
-        env.mdp.trans_probs[i] = deepcopy(T)
-        @show env.mdp.trans_probs[i]
-        env.switchflag[i] = true
+
+        if ~all(env.mdp.trans_probs[i] .== T) # If there was indeed a change
+            # @show CartesianIndices(env.mdp.trans_probs)[i]
+            # @show env.mdp.trans_probs[i]
+            env.mdp.trans_probs[i] = deepcopy(T)
+            # @show env.mdp.trans_probs[i]
+            env.switchflag[i] = true
+        end
     end
+    # Make sure there is at least one transtion to a terminalstate
+    env.mdp.trans_probs, previousaction, previousstate = ensuretransitiontoterminal!(
+                                                        env.mdp.trans_probs,
+                                                        env.stochasticity,
+                                                        env.rng,
+                                                        env.mdp.isterminal)
+    # @show previousaction, previousstate
+    if previousaction!=0
+        env.switchflag[previousaction, previousstate] = true
+    end
+
+
     interact!(env.mdp, action)
 end
 # OLD versions:
@@ -395,10 +413,6 @@ function replaceNaNswithdeterminism!(T, rng)
     if ~isempty(nanvectorindices)
         for k in nanvectorindices
             # @show k
-            # T[k[1], k[2]] = zeros(ns)
-            # possiblenextstates = deleteat!(collect(1:ns), k[2])
-            # nextstate = rand(rng, possiblenextstates)
-            # T[k[1], k[2]][nextstate] = 1.
             T[k[1], k[2]]  = replaceNaNswithdeterminism!(T[k[1], k[2]], rng, k[2])
         end
     end
@@ -418,15 +432,11 @@ function replaceNaNswithdeterminism!(T::Array{Float64,1}, rng, stateindex)
 end
 export replaceNaNswithdeterminism!
 function removeautoconnections!(T, stochasticity, rng)
-    # na = size(T,1)
-    # ns = size(T,2)
+    # na = size(T,1); ns = size(T,2)
     for a in 1:size(T,1)
         for s in 1:size(T,2)
             # @show (a, s)
             T[a, s] = removeautoconnections!(T[a, s], stochasticity, rng, s)
-            # while T[a, s][s] > 0.9999
-            #     T[a, s] = rand(rng, Dirichlet(ns, stochasticity))
-            # end
         end
     end
     T
@@ -441,3 +451,51 @@ function removeautoconnections!(T::Array{Float64,1}, stochasticity, rng, statein
     T
 end
 export removeautoconnections!
+function ensuretransitiontoterminal!(T, stochasticity, rng, isterminal)
+    previousaction = 0; previousstate = 0
+    terminalstates = findall(y-> y==1, isterminal)
+    istheretransition = checktransitiontoterminal(T, terminalstates)
+    # @show typeof(istheretransition)
+    if ~istheretransition
+        # println("i m here")
+        possibleprevioustates = deleteat!(collect(1:size(T,2)), terminalstates)
+        previousstate = rand(rng, possibleprevioustates)
+        previousaction = rand(rng, collect(1:size(T,1)))
+        chosenterminalstate = rand(rng, terminalstates)
+        Ttemp = zeros(size(T,2))
+        while Ttemp[chosenterminalstate] < 0.1
+            # println("i m here too")
+            # @show stateindex
+            Ttemp = rand(rng, Dirichlet(size(T,2), stochasticity))
+            if any(isnan.(Ttemp))
+                Ttemp = zeros(size(T,2))
+                Ttemp[chosenterminalstate] = 1.
+            end
+        end
+        T[previousaction, previousstate] = copy(Ttemp)
+    end
+    T, previousaction, previousstate
+end
+export ensuretransitiontoterminal!
+function checktransitiontoterminal(T, terminalstates)
+    istheretransition = false
+    # @show typeof(istheretransition)
+    for i in terminalstates
+        for a in 1:size(T,1), s in 1:size(T,2)
+            # @show a
+            # @show s
+            # @show T[a, s][i]
+            if T[a, s][i] > 0.1
+                istheretransition = true
+                break;
+            end
+            # @show istheretransition
+            # @show typeof(istheretransition)
+        end
+        if istheretransition
+            break;
+        end
+    end
+    istheretransition
+end
+export checktransitiontoterminal
